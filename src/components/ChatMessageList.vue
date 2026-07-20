@@ -1,0 +1,670 @@
+<template>
+  <div ref="listRef" class="chat-message-list">
+    <div class="messages-column">
+      <div v-if="!chatStore.activeConversation" class="empty-state">
+        <PictureOutlined class="empty-icon" />
+        <p>选择左侧对话，或新建一个对话开始生图</p>
+        <p class="empty-sub">每条消息都是一条生图提示词；引用或上传图片即为图生图</p>
+      </div>
+
+      <template v-else>
+        <div v-if="chatStore.activeConversation.messages.length === 0" class="empty-state">
+          <PictureOutlined class="empty-icon" />
+          <p>输入提示词开始生成图片</p>
+        </div>
+
+        <div
+          v-for="msg in chatStore.activeConversation.messages"
+          :key="msg.id"
+          class="message-row"
+          :class="msg.role"
+        >
+          <!-- 用户消息：提示词 + 参考图，支持原地编辑重发 -->
+          <div v-if="msg.role === 'user'" class="user-wrap">
+            <div class="bubble user-bubble" :class="{ editing: editingId === msg.id }">
+              <template v-if="editingId === msg.id">
+                <a-textarea
+                  v-model:value="editingText"
+                  :bordered="false"
+                  :auto-size="{ minRows: 3, maxRows: 16 }"
+                  placeholder="编辑提示词，Enter 重新发送，Shift+Enter 换行"
+                  @pressEnter="handleEditEnter"
+                />
+                <div class="edit-actions">
+                  <AppButton size="small" @click="cancelEdit">取消</AppButton>
+                  <AppButton size="small" type="primary" @click="confirmEdit">重新发送</AppButton>
+                </div>
+              </template>
+              <template v-else>
+                <div v-if="msg.referenceImages.length > 0" class="ref-images">
+                  <a-image
+                    v-for="ref in msg.referenceImages"
+                    :key="ref.id"
+                    :src="ref.url"
+                    :width="72"
+                    :height="72"
+                    style="object-fit: cover; border-radius: 8px;"
+                  />
+                </div>
+                <div class="prompt-text">{{ msg.prompt }}</div>
+              </template>
+            </div>
+            <div v-if="editingId !== msg.id" class="msg-actions">
+              <a-tooltip title="回填到输入框">
+                <button class="icon-btn" @click="chatStore.setDraftPrompt(msg.prompt, msg.referenceImages)">
+                  <RollbackOutlined />
+                </button>
+              </a-tooltip>
+              <a-tooltip v-if="canEdit(msg)" title="编辑并重新发送">
+                <button class="icon-btn" @click="startEdit(msg)">
+                  <EditOutlined />
+                </button>
+              </a-tooltip>
+              <a-popconfirm
+                title="删除该消息及其生成结果？"
+                ok-text="删除"
+                cancel-text="取消"
+                @confirm="handleDelete(msg)"
+              >
+                <a-tooltip title="删除">
+                  <button class="icon-btn delete-btn">
+                    <DeleteOutlined />
+                  </button>
+                </a-tooltip>
+              </a-popconfirm>
+            </div>
+          </div>
+
+          <!-- assistant 消息：生成结果（无气泡，内容平铺） -->
+          <div v-else class="assistant-wrap">
+            <!-- 部分失败提示（生成中随失败实时出现） -->
+            <div v-if="msg.status !== 'error' && msg.partialError" class="partial-error">
+              <WarningOutlined /> {{ msg.partialError }}
+            </div>
+
+            <!-- 已完成的图片（多张任务时生成中会逐张渐进出现） -->
+            <div v-if="msg.generatedImages.length > 0" class="generated-images">
+              <div
+                v-for="img in msg.generatedImages"
+                :key="img.id"
+                class="generated-image-card"
+                :class="{ single: msg.generatedImages.length === 1 }"
+              >
+                <a-image :src="img.url" class="gen-img" />
+                <div class="img-overlay">
+                  <a-tooltip title="引用此图继续生成">
+                    <button class="overlay-btn" @click="handleReference(img)">
+                      <LinkOutlined />
+                    </button>
+                  </a-tooltip>
+                  <a-tooltip title="查看生成参数">
+                    <button class="overlay-btn" @click="openParams(img)">
+                      <InfoCircleOutlined />
+                    </button>
+                  </a-tooltip>
+                  <a :href="img.url" :download="img.filename">
+                    <a-tooltip title="下载">
+                      <button class="overlay-btn">
+                        <DownloadOutlined />
+                      </button>
+                    </a-tooltip>
+                  </a>
+                </div>
+                <span v-if="img.generationTime" class="gen-time">{{ img.generationTime.toFixed(1) }}s</span>
+              </div>
+              <!-- 追加生成一张：复用本消息的提示词与参考图，生成中也可点 -->
+              <a-tooltip v-if="msg.status === 'done' || msg.status === 'generating'" title="再生成一张">
+                <button class="add-image-btn" @click="handleGenerateMore(msg)">
+                  <PlusOutlined />
+                </button>
+              </a-tooltip>
+            </div>
+
+            <div v-if="msg.status === 'generating'" class="generating-card">
+              <div v-if="remainingShimmerCount(msg) > 0" class="shimmer-row">
+                <div v-for="i in remainingShimmerCount(msg)" :key="i" class="shimmer-block" />
+              </div>
+              <div class="generating-text">
+                <LoadingOutlined />
+                {{ generatingText(msg) }}
+              </div>
+            </div>
+
+            <div v-else-if="msg.status === 'error'" class="error-box">
+              <CloseCircleFilled class="error-icon" />
+              <div class="error-content">
+                <div class="error-title">生成失败</div>
+                <div class="error-desc">{{ msg.error }}</div>
+              </div>
+              <AppButton size="small" @click="chatStore.retryMessage(msg.id)">重试</AppButton>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 生成参数模态框 -->
+    <a-modal
+      v-model:open="paramsVisible"
+      title="生成参数"
+      :footer="null"
+      :width="720"
+    >
+      <div v-if="paramsImage">
+        <img :src="paramsImage.url" style="width: 100%; border-radius: 10px;" />
+        <a-descriptions :column="2" bordered size="small" style="margin-top: 16px;">
+          <a-descriptions-item label="Prompt" :span="2">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <span style="white-space: pre-wrap; word-break: break-word; flex: 1;">{{ paramsImage.prompt }}</span>
+              <AppButton size="small" @click="copyPrompt(paramsImage.prompt)">
+                <CopyOutlined />
+              </AppButton>
+            </div>
+          </a-descriptions-item>
+          <a-descriptions-item label="Model">
+            {{ paramsImage.metadata?.model || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item label="Size">
+            {{ paramsImage.metadata?.size || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item label="来源">
+            {{ providerLabel(paramsImage.provider, paramsImage.model) }}
+          </a-descriptions-item>
+          <a-descriptions-item label="耗时">
+            {{ paramsImage.generationTime ? paramsImage.generationTime.toFixed(1) + 's' : '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item label="文件名" :span="2">
+            {{ paramsImage.filename }}
+          </a-descriptions-item>
+        </a-descriptions>
+      </div>
+    </a-modal>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, watch, nextTick } from 'vue'
+import {
+  LinkOutlined,
+  DownloadOutlined,
+  InfoCircleOutlined,
+  CopyOutlined,
+  EditOutlined,
+  PictureOutlined,
+  LoadingOutlined,
+  CloseCircleFilled,
+  WarningOutlined,
+  PlusOutlined,
+  RollbackOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons-vue'
+import { message, Modal } from 'ant-design-vue'
+import { useChatStore } from '@/stores/chat'
+import { useSettingsStore } from '@/stores/settings'
+import AppButton from './AppButton.vue'
+import type { ChatGeneratedImage, ChatMessage, ChatProvider } from '@/types'
+
+const chatStore = useChatStore()
+const settingsStore = useSettingsStore()
+const listRef = ref<HTMLElement | null>(null)
+
+// ==================== 原地编辑 ====================
+
+const editingId = ref<string | null>(null)
+const editingText = ref('')
+
+// 只有下一条 assistant 消息存在且不在生成中时才允许编辑
+function canEdit(msg: ChatMessage): boolean {
+  const msgs = chatStore.activeConversation?.messages || []
+  const idx = msgs.findIndex(m => m.id === msg.id)
+  const next = msgs[idx + 1]
+  return next?.role === 'assistant' && next.status !== 'generating'
+}
+
+function startEdit(msg: ChatMessage) {
+  editingId.value = msg.id
+  editingText.value = msg.prompt
+}
+
+function cancelEdit() {
+  editingId.value = null
+}
+
+async function confirmEdit() {
+  if (!editingId.value) return
+  const id = editingId.value
+  const text = editingText.value
+  editingId.value = null
+  await chatStore.editAndResend(id, text)
+}
+
+function handleEditEnter(e: KeyboardEvent) {
+  if (e.shiftKey) return // Shift+Enter 换行
+  e.preventDefault()
+  confirmEdit()
+}
+
+const paramsVisible = ref(false)
+const paramsImage = ref<ChatGeneratedImage | null>(null)
+
+function openParams(img: ChatGeneratedImage) {
+  paramsImage.value = img
+  paramsVisible.value = true
+}
+
+async function copyPrompt(prompt: string) {
+  try {
+    await navigator.clipboard.writeText(prompt)
+    message.success('已复制')
+  } catch {
+    message.error('复制失败')
+  }
+}
+
+function providerLabel(provider: ChatProvider, model?: string): string {
+  return settingsStore.providerLabel(provider, model)
+}
+
+// 生成中剩余占位骨架数：已完成的图渐进上屏、已失败的任务也不再占位
+function remainingShimmerCount(msg: ChatMessage): number {
+  return Math.max((msg.count || 1) - msg.generatedImages.length - (msg.failedCount || 0), 0)
+}
+
+function generatingText(msg: ChatMessage): string {
+  const total = msg.count || 1
+  const done = msg.generatedImages.length
+  const base = total > 1 ? `正在生成 ${total} 张图片` : '正在生成图片'
+  const progress = done > 0 && done < total ? `，已完成 ${done}/${total}` : ''
+  return `${base}…（${providerLabel(msg.provider, msg.model)}${progress}）`
+}
+
+function handleReference(img: ChatGeneratedImage) {
+  chatStore.addPendingReference(img)
+}
+
+function handleGenerateMore(msg: ChatMessage) {
+  chatStore.generateOneMore(msg.id)
+}
+
+// 删除消息：已有实际产出（至少一张生成图）时再弹一次确认，避免误删成果
+function handleDelete(msg: ChatMessage) {
+  const msgs = chatStore.activeConversation?.messages || []
+  const idx = msgs.findIndex(m => m.id === msg.id)
+  const assistant = msgs[idx + 1]
+  const imageCount = assistant?.role === 'assistant' ? assistant.generatedImages.length : 0
+  if (imageCount === 0) {
+    chatStore.deleteMessage(msg.id)
+    return
+  }
+  Modal.confirm({
+    title: '该记录有已生成的图片',
+    content: `包含 ${imageCount} 张已生成图片，删除后记录无法恢复（图片文件会保留）。确定删除？`,
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: () => chatStore.deleteMessage(msg.id),
+  })
+}
+
+// 消息变化时滚动到底部；同一会话内删除消息（变短）不滚，保持当前阅读位置
+watch(
+  () => [
+    chatStore.activeConversationId,
+    chatStore.activeConversation?.messages.length,
+    chatStore.activeConversation?.messages[chatStore.activeConversation.messages.length - 1]?.status,
+  ],
+  async ([convId, newLen], [oldConvId, oldLen]) => {
+    if (convId === oldConvId && (newLen ?? 0) < (oldLen ?? 0)) return
+    await nextTick()
+    if (listRef.value) {
+      listRef.value.scrollTop = listRef.value.scrollHeight
+    }
+  }
+)
+</script>
+
+<style scoped>
+.chat-message-list {
+  flex: 1;
+  overflow-y: auto;
+  background: transparent;
+}
+
+/* 居中内容列：与 ChatGPT 一致的单栏阅读宽度 */
+.messages-column {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 24px 8px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.empty-icon {
+  font-size: 40px;
+  color: var(--empty-icon);
+  margin-bottom: 12px;
+}
+
+.empty-sub {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.message-row {
+  margin-bottom: 28px;
+}
+
+/* ---------- 用户消息 ---------- */
+
+.user-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.bubble {
+  word-break: break-word;
+}
+
+.user-bubble {
+  max-width: 75%;
+  padding: 10px 16px;
+  border-radius: var(--bubble-radius);
+  border: var(--bubble-border);
+  background: var(--bubble-bg);
+  box-shadow: var(--bubble-shadow);
+  color: var(--bubble-text);
+  text-shadow: var(--bubble-text-shadow);
+}
+
+/* 编辑态：气泡展开到舒适宽度，输入框去边框融入气泡 */
+.user-bubble.editing {
+  width: min(640px, 100%);
+  max-width: 100%;
+  border-radius: var(--bubble-radius);
+  padding: 12px 14px 10px;
+}
+
+.user-bubble.editing :deep(.ant-input) {
+  padding: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  background: transparent;
+  color: var(--bubble-text);
+  resize: none;
+  box-shadow: none !important;
+}
+
+.prompt-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+.ref-images {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+/* 编辑入口：气泡下方，悬停整行时出现 */
+.msg-actions {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.message-row.user:hover .msg-actions {
+  opacity: 1;
+}
+
+.icon-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--iconbtn-text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--iconbtn-hover-bg);
+  color: var(--iconbtn-hover-text);
+}
+
+.delete-btn:hover {
+  color: #ff4d4f;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ---------- assistant 消息 ---------- */
+
+.assistant-wrap {
+  width: 100%;
+}
+
+/* 生成中：骨架占位 + 呼吸动画 */
+.generating-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 渐进生成时骨架跟在已完成图片后面，保持与网格相同的间距 */
+.generated-images + .generating-card {
+  margin-top: 12px;
+}
+
+.shimmer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.shimmer-block {
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  background: linear-gradient(100deg, var(--shimmer-base) 40%, var(--shimmer-hl) 50%, var(--shimmer-base) 60%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.generating-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--generating-text);
+  font-size: 13px;
+}
+
+/* 失败：轻量内联错误块 */
+.error-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 560px;
+  padding: 12px 14px;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 10px;
+}
+
+/* 部分任务失败：图片网格上方的提示条 */
+.partial-error {
+  max-width: 560px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 10px;
+  color: #ad6800;
+  font-size: 13px;
+}
+
+.error-icon {
+  color: #ff4d4f;
+  margin-top: 2px;
+}
+
+.error-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.error-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #cf1322;
+}
+
+.error-desc {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+/* 生成结果图片 */
+.generated-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.generated-image-card {
+  position: relative;
+  width: 220px;
+  max-width: 100%;
+}
+
+.generated-image-card.single {
+  width: min(360px, 100%);
+}
+
+.generated-image-card :deep(.ant-image) {
+  display: block;
+  width: 100%;
+}
+
+.generated-image-card :deep(.ant-image-img) {
+  width: 100%;
+  border-radius: var(--img-radius);
+  border: 1px solid var(--img-border);
+  display: block;
+}
+
+/* 隐藏 antd 自带的悬停遮罩（保留点击预览），避免与浮层按钮叠加 */
+.generated-image-card :deep(.ant-image-mask),
+.ref-images :deep(.ant-image-mask) {
+  display: none;
+}
+
+/* 悬停浮层操作：替代之前的工具条按钮 */
+.img-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.generated-image-card:hover .img-overlay {
+  opacity: 1;
+}
+
+.overlay-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  color: #333;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.overlay-btn:hover {
+  background: #fff;
+  transform: scale(1.06);
+}
+
+.gen-time {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 2px 6px;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.generated-image-card:hover .gen-time {
+  opacity: 1;
+}
+
+/* 追加生成一张：网格末尾的小圆按钮，低调不抢视觉 */
+.add-image-btn {
+  align-self: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--addbtn-border);
+  border-radius: 50%;
+  background: var(--addbtn-bg);
+  color: var(--addbtn-text);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.add-image-btn:hover {
+  border-color: var(--addbtn-hover-border);
+  color: var(--addbtn-hover-text);
+}
+</style>

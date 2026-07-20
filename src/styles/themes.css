@@ -1,0 +1,652 @@
+/* ==========================================================================
+   主题系统：CSS 变量 + html[data-theme] 切换
+   - :root 为 ChatGPT（默认）主题，即应用原有黑白灰外观
+   - 各主题块只覆盖变量；无法用变量表达的装饰（玻璃高光、辉光、选区色等）
+     用 html[data-theme='x'] 前缀的全局规则书写（特异性高于组件 scoped 样式）
+   ========================================================================== */
+
+:root {
+  /* 字体 */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* 页面背景（html 画布，含装饰渐变图层） */
+  --page-bg: #ffffff;
+
+  /* 顶栏 */
+  --header-bg: #ffffff;
+  --header-border: #e5e5e5;
+  --header-text: #1f1f1f;
+  --header-blur: none;
+
+  /* 侧栏 */
+  --sider-bg: #f9f9f9;
+  --sider-border: #ececec;
+  --sider-blur: none;
+  --sider-text: #1f1f1f;
+  --sider-faint: #aaa;
+  --sider-icon: #999;
+  --sider-icon-hover: #333;
+  --sider-item-hover: #efefef;
+  --sider-item-active: #e8e8e8;
+  --sider-item-active-text: #1f1f1f;
+  --sider-active-weight: 500;
+
+  /* 新对话按钮 */
+  --newbtn-bg: #fff;
+  --newbtn-border: #e3e3e3;
+  --newbtn-text: #1f1f1f;
+  --newbtn-radius: 10px;
+  --newbtn-text-shadow: none;
+  --newbtn-hover-border: #c9c9c9;
+  --newbtn-hover-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  /* 主区与文字 */
+  --main-bg: #ffffff;
+  --main-blur: none;
+  --text-primary: #1a1a1a;
+  --text-secondary: #888;
+  --text-faint: #bbb;
+  --border-subtle: #ececec;
+  --border-strong: #999;
+  --empty-icon: #ddd;
+
+  /* 用户气泡 */
+  --bubble-bg: #f4f4f4;
+  --bubble-text: #1a1a1a;
+  --bubble-radius: 20px;
+  --bubble-border: none;
+  --bubble-shadow: none;
+  --bubble-text-shadow: none;
+
+  /* 输入卡片 */
+  --input-bg: #fff;
+  --input-border: #e3e3e3;
+  --input-radius: 18px;
+  --input-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --input-blur: none;
+  --input-focus-border: #bfbfbf;
+  --input-focus-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+
+  /* 消息操作小图标按钮 */
+  --iconbtn-text: #999;
+  --iconbtn-hover-bg: #f0f0f0;
+  --iconbtn-hover-text: #333;
+
+  /* 输入框工具按钮 */
+  --toolbtn-text: #666;
+  --toolbtn-hover-bg: #f2f2f2;
+  --toolbtn-hover-text: #111;
+
+  /* 发送按钮 */
+  --send-bg: #1f1f1f;
+  --send-border: none;
+  --send-shadow: none;
+  --send-text: #fff;
+  --send-hover-bg: #000;
+  --send-hover-shadow: none;
+  --send-disabled-bg: #e8e8e8;
+  --send-disabled-text: #aaa;
+
+  /* 追加生成小圆钮 */
+  --addbtn-bg: #fff;
+  --addbtn-border: #e5e5e5;
+  --addbtn-text: #999;
+  --addbtn-hover-border: #1f1f1f;
+  --addbtn-hover-text: #1f1f1f;
+
+  /* 生成图片卡片 */
+  --img-border: #f0f0f0;
+  --img-radius: 12px;
+
+  /* 骨架屏 */
+  --shimmer-base: #f0f0f0;
+  --shimmer-hl: #f8f8f8;
+
+  /* 文生图/图生图模式指示 */
+  --mode-text: #888;
+  --mode-dot: #1f1f1f;
+  --generating-text: #888;
+
+  /* 滚动条 */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --scrollbar-track: transparent;
+}
+
+/* ==========================================================================
+   Frutiger Aero —— 明亮玻璃质感：天空蓝→嫩绿渐变、半透明白玻璃、高光按钮
+   ========================================================================== */
+html[data-theme='frutiger-aero'] {
+  --font-family: 'Frutiger', 'Segoe UI', 'Trebuchet MS', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* 生成的 Frutiger Aero 壁纸 + 一层白色薄纱保证玻璃面板对比度；末尾渐变是图片加载失败时的兜底 */
+  --page-bg:
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    url('/backgrounds/bg-frutiger-aero.jpg'),
+    linear-gradient(180deg, #a9d9f2 0%, #cfe9f7 38%, #dff0e4 100%);
+
+  --header-bg: rgba(255, 255, 255, 0.55);
+  --header-border: rgba(255, 255, 255, 0.75);
+  --header-text: #123c54;
+  --header-blur: blur(14px) saturate(1.4);
+
+  --sider-bg: rgba(255, 255, 255, 0.48);
+  --sider-border: rgba(255, 255, 255, 0.6);
+  --sider-blur: blur(14px) saturate(1.3);
+  --sider-text: #14455f;
+  --sider-faint: #7aa7bc;
+  --sider-icon: #5e8ca3;
+  --sider-icon-hover: #14455f;
+  --sider-item-hover: rgba(255, 255, 255, 0.68);
+  --sider-item-active: linear-gradient(180deg, #84c9f1 0%, #57abe0 50%, #3f97d4 100%);
+  --sider-item-active-text: #ffffff;
+  --sider-active-weight: 600;
+
+  --newbtn-bg: linear-gradient(180deg, #feffff 0%, #d8f1fb 45%, #b7e4f6 50%, #9fdcf3 100%);
+  --newbtn-border: #79bde0;
+  --newbtn-text: #0d4a6e;
+  --newbtn-radius: 12px;
+  --newbtn-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  --newbtn-hover-border: #5aa9d4;
+  --newbtn-hover-shadow: 0 0 10px rgba(110, 190, 235, 0.55), 0 2px 6px rgba(46, 116, 160, 0.3);
+
+  /* 主区：85% 白玻璃 + 较强模糊 —— 壁纸透成柔和色彩，细节被糊掉不抢阅读 */
+  --main-bg: rgba(255, 255, 255, 0.311);
+  --main-blur: blur(18px) saturate(1.4);
+  --text-primary: #143d52;
+  --text-secondary: #5b87a0;
+  --text-faint: #8fb2c4;
+  --border-subtle: rgba(255, 255, 255, 0.65);
+  --border-strong: #6a9cb5;
+  --empty-icon: #9fc8de;
+
+  --bubble-bg: linear-gradient(180deg, #8ed0f5 0%, #54a9e0 50%, #3f97d4 100%);
+  --bubble-text: #ffffff;
+  --bubble-radius: 16px;
+  --bubble-border: 1px solid #2f7fb8;
+  --bubble-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 6px rgba(31, 119, 180, 0.35);
+  --bubble-text-shadow: 0 1px 1px rgba(20, 60, 90, 0.4);
+
+  --input-bg: rgba(255, 255, 255, 0.78);
+  --input-border: rgba(151, 199, 227, 0.75);
+  --input-radius: 18px;
+  --input-shadow: 0 4px 18px rgba(46, 116, 160, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --input-blur: blur(14px) saturate(1.3);
+  --input-focus-border: #54a9e0;
+  --input-focus-shadow: 0 0 0 3px rgba(84, 169, 224, 0.28), 0 4px 18px rgba(46, 116, 160, 0.2);
+
+  --iconbtn-text: #6a93a8;
+  --iconbtn-hover-bg: rgba(84, 169, 224, 0.15);
+  --iconbtn-hover-text: #1773a8;
+
+  --toolbtn-text: #2c6a8e;
+  --toolbtn-hover-bg: rgba(84, 169, 224, 0.18);
+  --toolbtn-hover-text: #175d85;
+
+  --send-bg: linear-gradient(180deg, #c0ee9a 0%, #79cd55 48%, #54b035 52%, #3f9428 100%);
+  --send-border: 1px solid #35801f;
+  --send-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 2px 5px rgba(60, 140, 60, 0.4);
+  --send-text: #ffffff;
+  --send-hover-bg: linear-gradient(180deg, #cdf5ab 0%, #86d663 48%, #5dbc3c 52%, #48a02d 100%);
+  --send-hover-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 0 12px rgba(110, 200, 80, 0.55);
+  --send-disabled-bg: rgba(220, 235, 243, 0.8);
+  --send-disabled-text: #9fb8c4;
+
+  --addbtn-bg: rgba(255, 255, 255, 0.65);
+  --addbtn-border: rgba(255, 255, 255, 0.9);
+  --addbtn-text: #4a8ab0;
+  --addbtn-hover-border: #2f8fce;
+  --addbtn-hover-text: #2f8fce;
+
+  --img-border: rgba(255, 255, 255, 0.8);
+  --img-radius: 14px;
+
+  --shimmer-base: rgba(206, 226, 236, 0.6);
+  --shimmer-hl: rgba(242, 249, 252, 0.85);
+
+  --mode-text: #4a7a99;
+  --mode-dot: #4ea832;
+  --generating-text: #7aafc6;
+
+  --scrollbar-thumb: rgba(84, 140, 180, 0.55);
+  --scrollbar-track: transparent;
+}
+
+/* ==========================================================================
+   Windows Vista —— 暗色 Aero 毛玻璃窗口边框 + 浅色内容窗格 + 蓝色辉光
+   ========================================================================== */
+html[data-theme='vista'] {
+  --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei UI', sans-serif;
+
+  /* 生成的 Vista Aurora 壁纸 + 一层轻薄暗纱保证玻璃面板可读性；末尾渐变是图片加载失败时的兜底 */
+  --page-bg:
+    linear-gradient(rgba(16, 26, 38, 0.15), rgba(16, 26, 38, 0.03)),
+    url('/backgrounds/bg-vista.jpg'),
+    linear-gradient(135deg, #2a4a6e 0%, #40709f 48%, #2f5a80 100%);
+
+  --header-bg: rgba(20, 32, 46, 0.72);
+  --header-border: rgba(255, 255, 255, 0.12);
+  --header-text: #e8eef4;
+  --header-blur: blur(18px) saturate(1.3);
+
+  --sider-bg: rgba(24, 36, 52, 0.68);
+  --sider-border: rgba(255, 255, 255, 0.1);
+  --sider-blur: blur(18px) saturate(1.3);
+  --sider-text: #d3dfe9;
+  --sider-faint: #6e8090;
+  --sider-icon: #8fa2b3;
+  --sider-icon-hover: #e3ecf3;
+  --sider-item-hover: rgba(255, 255, 255, 0.09);
+  --sider-item-active: rgba(110, 170, 220, 0.3);
+  --sider-item-active-text: #eaf3fb;
+  --sider-active-weight: 600;
+
+  --newbtn-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(0, 0, 0, 0.15) 100%);
+  --newbtn-border: rgba(255, 255, 255, 0.35);
+  --newbtn-text: #f0f6fb;
+  --newbtn-radius: 4px;
+  --newbtn-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  --newbtn-hover-border: rgba(190, 225, 250, 0.8);
+  --newbtn-hover-shadow: 0 0 12px rgba(120, 185, 240, 0.5);
+
+  /* 主区：78% 浅色玻璃 + 重模糊 —— 极光透成一层蓝绿柔光，而不是被完全挡住 */
+  --main-bg: rgba(5, 5, 5, 0.11);
+  --main-blur: blur(24px) saturate(1.25);
+  --text-primary: #1d2b38;
+  --text-secondary: #7b8a99;
+  --text-faint: #b0bac3;
+  --border-subtle: #dde4ea;
+  --border-strong: #8a97a3;
+  --empty-icon: #c3ccd4;
+
+  --bubble-bg: linear-gradient(180deg, #fbfdff 0%, #e4eef7 50%, #d3e3f2 100%);
+  --bubble-text: #14324a;
+  --bubble-radius: 6px;
+  --bubble-border: 1px solid #9fb4c8;
+  --bubble-shadow: inset 0 1px 0 #ffffff, 0 1px 3px rgba(40, 70, 100, 0.18);
+  --bubble-text-shadow: none;
+
+  --input-bg: #ffffff;
+  --input-border: #98a7b5;
+  --input-radius: 6px;
+  --input-shadow: 0 1px 4px rgba(30, 50, 70, 0.12);
+  --input-blur: none;
+  --input-focus-border: #5f9cc9;
+  --input-focus-shadow: 0 0 6px rgba(95, 156, 201, 0.55);
+
+  --iconbtn-text: #8a97a3;
+  --iconbtn-hover-bg: rgba(31, 111, 178, 0.1);
+  --iconbtn-hover-text: #1f6fb2;
+
+  --toolbtn-text: #4a5c6c;
+  --toolbtn-hover-bg: rgba(31, 111, 178, 0.12);
+  --toolbtn-hover-text: #1f6fb2;
+
+  --send-bg: radial-gradient(circle at 32% 28%, #cdeffd 0%, #5cb3e5 35%, #1e6ea8 65%, #0e4d80 100%);
+  --send-border: 1px solid #0b4066;
+  --send-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 4px rgba(10, 40, 70, 0.45);
+  --send-text: #ffffff;
+  --send-hover-bg: radial-gradient(circle at 32% 28%, #dff5ff 0%, #6fc0ee 35%, #257cba 65%, #125a92 100%);
+  --send-hover-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 12px rgba(90, 160, 220, 0.6);
+  --send-disabled-bg: #dde3e9;
+  --send-disabled-text: #a3adb8;
+
+  --addbtn-bg: #fff;
+  --addbtn-border: #c4cfda;
+  --addbtn-text: #8a97a3;
+  --addbtn-hover-border: #1f6fb2;
+  --addbtn-hover-text: #1f6fb2;
+
+  --img-border: #d8e0e8;
+  --img-radius: 6px;
+
+  --shimmer-base: #e6ecf1;
+  --shimmer-hl: #f2f6fa;
+
+  --mode-text: #7b8a99;
+  --mode-dot: #2f7fb8;
+  --generating-text: #9bb5ca;
+
+  --scrollbar-thumb: rgba(130, 155, 175, 0.55);
+  --scrollbar-track: transparent;
+}
+
+/* ==========================================================================
+   Windows XP (Luna) —— Bliss 草原壁纸 + 经典蓝色标题栏 + 米灰任务窗格 + 绿色开始按钮
+   ========================================================================== */
+html[data-theme='xp'] {
+  --font-family: 'Tahoma', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* 生成的 Bliss 风格草原壁纸；末尾渐变是图片加载失败时的兜底 */
+  --page-bg:
+    url('/backgrounds/bg-xp.jpg'),
+    linear-gradient(180deg, #3a7bd5 0%, #6aa5e8 55%, #7cb05c 100%);
+
+  /* 经典 XP 标题栏蓝色渐变（不透明，忠于原作） */
+  --header-bg: linear-gradient(180deg, #0058e6 0%, #3a93ff 4%, #288eff 6%, #127dff 93%, #036ffc 100%);
+  --header-border: #0f3f8f;
+  --header-text: #ffffff;
+  --header-blur: none;
+
+  /* 侧栏：XP 任务窗格的米灰色，微透让草原壁纸透一点上来 */
+  --sider-bg: rgba(236, 233, 216, 0.88);
+  --sider-border: #d6d2c0;
+  --sider-blur: blur(10px);
+  --sider-text: #33332a;
+  --sider-faint: #9a9683;
+  --sider-icon: #8a8672;
+  --sider-icon-hover: #316ac5;
+  --sider-item-hover: rgba(255, 255, 255, 0.6);
+  --sider-item-active: linear-gradient(180deg, #3d94f2 0%, #2a76d2 50%, #1f5fb8 100%);
+  --sider-item-active-text: #ffffff;
+  --sider-active-weight: 600;
+
+  /* 新对话：XP 白银渐变按钮 */
+  --newbtn-bg: linear-gradient(180deg, #ffffff 0%, #eef2f8 45%, #d4e2f4 55%, #c9d9ee 100%);
+  --newbtn-border: #7f9db9;
+  --newbtn-text: #1a3a5c;
+  --newbtn-radius: 6px;
+  --newbtn-text-shadow: none;
+  --newbtn-hover-border: #316ac5;
+  --newbtn-hover-shadow: 0 0 8px rgba(90, 150, 230, 0.5);
+
+  /* 主区：88% 白玻璃，草原透成淡淡绿蓝光 */
+  --main-bg: rgba(255, 255, 255, 0.158);
+  --text-primary: #232323;
+  --text-secondary: #7a8a99;
+  --text-faint: #b0bac3;
+  --border-subtle: #e0e4e8;
+  --border-strong: #7f9db9;
+  --empty-icon: #c9d2dc;
+
+  /* 用户气泡：XP 浅蓝 */
+  --bubble-bg: linear-gradient(180deg, #e9f3fd 0%, #d6e7f7 100%);
+  --bubble-text: #1a3a5c;
+  --bubble-radius: 8px;
+  --bubble-border: 1px solid #9bc2e6;
+  --bubble-shadow: inset 0 1px 0 #ffffff, 0 1px 3px rgba(40, 90, 150, 0.15);
+  --bubble-text-shadow: none;
+
+  --input-bg: #ffffff;
+  --input-border: #7f9db9;
+  --input-radius: 8px;
+  --input-shadow: 0 1px 4px rgba(40, 90, 150, 0.12);
+  --input-blur: none;
+  --input-focus-border: #316ac5;
+  --input-focus-shadow: 0 0 6px rgba(49, 106, 197, 0.4);
+
+  --iconbtn-text: #8a94a0;
+  --iconbtn-hover-bg: rgba(49, 106, 197, 0.1);
+  --iconbtn-hover-text: #316ac5;
+
+  --toolbtn-text: #4a5568;
+  --toolbtn-hover-bg: rgba(49, 106, 197, 0.12);
+  --toolbtn-hover-text: #316ac5;
+
+  /* 发送钮：XP 开始按钮的绿色 */
+  --send-bg: linear-gradient(180deg, #b3e5a5 0%, #76c065 45%, #4b9a42 55%, #3c8a35 100%);
+  --send-border: 1px solid #2c6e2c;
+  --send-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 3px rgba(40, 110, 44, 0.4);
+  --send-text: #ffffff;
+  --send-hover-bg: linear-gradient(180deg, #c4efb8 0%, #84cc73 45%, #57a84d 55%, #469740 100%);
+  --send-hover-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 10px rgba(90, 180, 80, 0.55);
+  --send-disabled-bg: #e3e0d2;
+  --send-disabled-text: #a8a494;
+
+  --addbtn-bg: #fff;
+  --addbtn-border: #c3ccd6;
+  --addbtn-text: #7a8a99;
+  --addbtn-hover-border: #316ac5;
+  --addbtn-hover-text: #316ac5;
+
+  --img-border: #dbe2ea;
+  --img-radius: 8px;
+
+  --shimmer-base: #eef1f5;
+  --shimmer-hl: #f7f9fc;
+
+  --mode-text: #7a8a99;
+  --mode-dot: #316ac5;
+  --generating-text: #f2f4f6;
+
+  --scrollbar-thumb: rgba(49, 106, 197, 0.45);
+  --scrollbar-track: transparent;
+}
+
+/* ==========================================================================
+   全局应用：页面画布、布局透明化、滚动条、选区
+   ========================================================================== */
+
+/* 页面背景画在 html 画布上：不随滚动移动，且铺满视口；壁纸图层 cover 居中 */
+html {
+  background: var(--page-bg);
+  background-size: cover;
+  background-position: center;
+}
+
+body {
+  background: transparent;
+}
+
+/* antd layout 默认灰底会挡住页面背景，玻璃主题需要透出 */
+.ant-layout {
+  background: transparent;
+}
+
+/* 主题化滚动条 */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+/* 主题化选区色 */
+html[data-theme='frutiger-aero'] ::selection {
+  background: rgba(110, 190, 235, 0.45);
+}
+html[data-theme='vista'] ::selection {
+  background: rgba(95, 150, 205, 0.45);
+}
+html[data-theme='xp'] ::selection {
+  background: rgba(49, 106, 197, 0.3);
+}
+
+/* 会话选中项的玻璃描边与辉光（变量无法表达，全局覆盖；基础透明边框在组件内） */
+html[data-theme='frutiger-aero'] .conversation-item.active {
+  border-color: #3a90c9;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 4px rgba(46, 116, 160, 0.35);
+}
+html[data-theme='vista'] .conversation-item.active {
+  border-color: rgba(140, 190, 235, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 10px rgba(90, 150, 210, 0.4);
+}
+html[data-theme='xp'] .conversation-item.active {
+  border-color: #1b4f9e;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 3px rgba(27, 79, 158, 0.35);
+}
+
+/* XP 标题栏上的白色标题加一点投影，更像经典标题栏文字 */
+html[data-theme='xp'] .app-title {
+  text-shadow: 0 1px 2px rgba(0, 40, 120, 0.7);
+}
+
+/* 选中态下操作图标也要换成亮色，压在渐变/深色底上才看得清 */
+html[data-theme='frutiger-aero'] .conversation-item.active .action-icon,
+html[data-theme='vista'] .conversation-item.active .action-icon,
+html[data-theme='xp'] .conversation-item.active .action-icon {
+  color: rgba(255, 255, 255, 0.85);
+}
+html[data-theme='frutiger-aero'] .conversation-item.active .action-icon:hover,
+html[data-theme='vista'] .conversation-item.active .action-icon:hover,
+html[data-theme='xp'] .conversation-item.active .action-icon:hover {
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   antd 弹层面板：popconfirm / popover / Modal 确认框的玻璃质感
+   （面板与按钮颜色由 theme.ts 的组件 token 注入；模糊和箭头配色 token
+     表达不了，在这里按主题补 —— 箭头必须与面板同色，否则默认白箭头穿帮）
+   ========================================================================== */
+html[data-theme='frutiger-aero'] .ant-popover-inner,
+html[data-theme='frutiger-aero'] .ant-modal .ant-modal-content {
+  backdrop-filter: blur(14px) saturate(1.35);
+}
+html[data-theme='frutiger-aero'] .ant-popover .ant-popover-arrow::before {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme='vista'] .ant-popover-inner,
+html[data-theme='vista'] .ant-modal .ant-modal-content {
+  backdrop-filter: blur(16px) saturate(1.25);
+}
+html[data-theme='vista'] .ant-popover .ant-popover-arrow::before {
+  background: rgba(244, 248, 252, 0.94);
+}
+
+html[data-theme='xp'] .ant-popover .ant-popover-arrow::before {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+/* antd 默认按钮（确认框取消、错误块重试等）：玻璃主题下换成主题色描边样式。
+   antd-vue 4 的 Button 无配色 token，只能全局覆盖；cssinjs 选择器包在 :where()
+   里特异性为 0，html[data-theme] 前缀足以压过 */
+html[data-theme='frutiger-aero'] .ant-btn-default {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(151, 199, 227, 0.9);
+  color: #14455f;
+}
+html[data-theme='frutiger-aero'] .ant-btn-default:not(:disabled):hover {
+  background: #ffffff;
+  border-color: #54a9e0;
+  color: #1773a8;
+}
+
+html[data-theme='vista'] .ant-btn-default {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: #98a7b5;
+  color: #1d2b38;
+}
+html[data-theme='vista'] .ant-btn-default:not(:disabled):hover {
+  background: #ffffff;
+  border-color: #5f9cc9;
+  color: #1f6fb2;
+}
+
+html[data-theme='xp'] .ant-btn-default {
+  background: #ffffff;
+  border-color: #7f9db9;
+  color: #1a3a5c;
+}
+html[data-theme='xp'] .ant-btn-default:not(:disabled):hover {
+  background: #eef4fc;
+  border-color: #316ac5;
+  color: #316ac5;
+}
+
+/* ==========================================================================
+   AppButton 玻璃主题皮肤：default 走半透明玻璃，primary 走主题渐变高光，
+   danger 三主题共用同一套红色。几何结构与 ChatGPT 皮肤在 AppButton.vue 内
+   ========================================================================== */
+
+/* ---------- Frutiger Aero ---------- */
+html[data-theme='frutiger-aero'] .app-btn {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(151, 199, 227, 0.9);
+  border-radius: 10px;
+  color: #14455f;
+  backdrop-filter: blur(8px);
+}
+html[data-theme='frutiger-aero'] .app-btn:not(:disabled):hover {
+  background: #ffffff;
+  border-color: #54a9e0;
+  color: #1773a8;
+  box-shadow: 0 0 8px rgba(110, 190, 235, 0.45);
+}
+html[data-theme='frutiger-aero'] .app-btn--primary {
+  background: linear-gradient(180deg, #8ed0f5 0%, #54a9e0 50%, #3f97d4 100%);
+  border-color: #2f7fb8;
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(20, 60, 90, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 6px rgba(31, 119, 180, 0.35);
+}
+html[data-theme='frutiger-aero'] .app-btn--primary:not(:disabled):hover {
+  background: linear-gradient(180deg, #a3dbf8 0%, #66b6e8 50%, #4ba3dc 100%);
+  border-color: #2f7fb8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 10px rgba(110, 190, 235, 0.55);
+}
+
+/* ---------- Windows Vista ---------- */
+html[data-theme='vista'] .app-btn {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: #98a7b5;
+  border-radius: 4px;
+  color: #1d2b38;
+}
+html[data-theme='vista'] .app-btn:not(:disabled):hover {
+  background: #ffffff;
+  border-color: #5f9cc9;
+  color: #1f6fb2;
+  box-shadow: 0 0 6px rgba(95, 156, 201, 0.5);
+}
+html[data-theme='vista'] .app-btn--primary {
+  background: linear-gradient(180deg, #7cc3ef 0%, #3f8fce 50%, #2a76b0 100%);
+  border-color: #155a8a;
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(10, 40, 70, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 1px 3px rgba(10, 40, 70, 0.4);
+}
+html[data-theme='vista'] .app-btn--primary:not(:disabled):hover {
+  background: linear-gradient(180deg, #92d0f5 0%, #4f9ed8 50%, #3585c0 100%);
+  border-color: #155a8a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 10px rgba(90, 160, 220, 0.6);
+}
+
+/* ---------- Windows XP ---------- */
+html[data-theme='xp'] .app-btn {
+  background: linear-gradient(180deg, #ffffff 0%, #eef2f8 45%, #d4e2f4 55%, #c9d9ee 100%);
+  border-color: #7f9db9;
+  border-radius: 6px;
+  color: #1a3a5c;
+}
+html[data-theme='xp'] .app-btn:not(:disabled):hover {
+  border-color: #316ac5;
+  color: #2456a8;
+  box-shadow: 0 0 8px rgba(90, 150, 230, 0.5);
+}
+html[data-theme='xp'] .app-btn--primary {
+  background: linear-gradient(180deg, #3d94f2 0%, #2a76d2 50%, #1f5fb8 100%);
+  border-color: #1b4f9e;
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(15, 45, 100, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 3px rgba(27, 79, 158, 0.35);
+}
+html[data-theme='xp'] .app-btn--primary:not(:disabled):hover {
+  background: linear-gradient(180deg, #55a4f6 0%, #3886e0 50%, #2a6dc8 100%);
+  border-color: #1b4f9e;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 10px rgba(90, 150, 230, 0.6);
+}
+
+/* ---------- danger：三主题共用 ---------- */
+html[data-theme='frutiger-aero'] .app-btn--danger,
+html[data-theme='vista'] .app-btn--danger,
+html[data-theme='xp'] .app-btn--danger {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: #e8908a;
+  color: #cf1322;
+  text-shadow: none;
+}
+html[data-theme='frutiger-aero'] .app-btn--danger:not(:disabled):hover,
+html[data-theme='vista'] .app-btn--danger:not(:disabled):hover,
+html[data-theme='xp'] .app-btn--danger:not(:disabled):hover {
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+  color: #ffffff;
+  box-shadow: none;
+}

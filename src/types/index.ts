@@ -1,0 +1,130 @@
+// TypeScript type definitions
+
+export interface ImageMetadata {
+  prompt: string
+  negative_prompt?: string
+  steps: number
+  sampler: string
+  cfg_scale: number
+  seed: number
+  size: string
+  model: string
+  model_hash: string
+  version: string
+  custom_metadata?: Record<string, any>
+}
+
+// ==================== Provider config ====================
+
+export type ProviderType = 'apimart-task' | 'openai-images'
+
+export interface ProviderModel {
+  id: string // model id sent to the upstream API
+  label: string // display name in the UI
+  // Extra fields merged into the upstream payload (e.g. { official_fallback: true })
+  extra?: Record<string, any>
+}
+
+export interface ProviderConfig {
+  id: string
+  name: string
+  type: ProviderType
+  enabled: boolean
+  apiKey: string
+  baseUrl: string
+  models: ProviderModel[]
+  custom?: boolean // user-added providers can be renamed/deleted
+}
+
+export interface AiChatConfig {
+  apiKey: string
+  baseUrl: string
+}
+
+// App configuration managed by the settings page
+export interface AppConfig {
+  providers: ProviderConfig[]
+  aiChat: AiChatConfig
+}
+
+// Image generation request (proxied to the configured provider API)
+export interface GenerateRequest {
+  providerId: string
+  modelId: string
+  prompt: string
+  n: number
+  size: string
+  resolution: string
+  imageCategory?: string
+  image_urls?: string[]
+}
+
+// ==================== Chat types ====================
+
+// Generation provider (provider id from AppConfig.providers)
+export type ChatProvider = string
+
+// Reference image carried by a user message (drives img2img)
+export interface ChatReferenceImage {
+  id: string
+  source: 'generated' | 'upload' // reuse a generated image / local upload
+  url: string                    // /images/... or /uploads/...
+  relativePath: string
+}
+
+// Generated image (assistant message result)
+export interface ChatGeneratedImage {
+  id: string
+  url: string
+  filename: string
+  prompt: string
+  provider: ChatProvider
+  model?: string
+  generationTime?: number
+  metadata?: ImageMetadata
+}
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  prompt: string
+  referenceImages: ChatReferenceImage[]  // carried by user messages
+  generatedImages: ChatGeneratedImage[]  // assistant message results
+  status: 'generating' | 'done' | 'error'
+  provider: ChatProvider
+  model?: string  // model id used for this turn
+  count?: number  // number of images requested for this turn
+  // Multiple images are split into independent tasks (one request each);
+  // task ids are persisted so polling can resume after a page refresh
+  taskIds?: string[]
+  taskId?: string  // legacy single-task field, read-only compat
+  // Notice shown when some tasks failed (status is done, but fewer images than count)
+  partialError?: string
+  failedCount?: number
+  error?: string
+  createdAt: number
+}
+
+export interface Conversation {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: ChatMessage[]
+}
+
+export interface ConversationSummary {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+}
+
+// Upload history item (cross-conversation reference image pool)
+export interface UploadHistoryItem {
+  url: string
+  relativePath: string
+  filename: string
+  useCount: number
+  uploadedAt: number
+}

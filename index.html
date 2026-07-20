@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GPT Image Chat</title>
+    <script>
+      // Restore the theme before app mount to avoid flashing the default appearance
+      // (must match STORAGE_KEY in src/stores/theme.ts)
+      document.documentElement.dataset.theme = localStorage.getItem('app_theme') || 'chatgpt'
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

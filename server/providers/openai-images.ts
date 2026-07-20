@@ -1,0 +1,133 @@
+import axios from 'axios'
+import { randomBytes } from 'crypto'
+import { extractErrorMessage } from '../lib/error'
+import type {
+  GenerateSubmitInput,
+  GenerationTask,
+  ImageSource,
+  PollOutcome,
+  ProviderAdapter,
+  ProviderConfig,
+  ProviderModel,
+} from './types'
+
+// Synchronous OpenAI-compatible providers (OpenAI official / OpenRouter / custom
+// OpenAI-compatible endpoints). The upstream API returns the finished image in one
+// request; we wrap it in a local task so the frontend keeps its uniform
+// submit -> poll flow. The upstream request fires on the first poll — the frontend
+// waits ~15s before its first poll anyway, and generations typically take 20-60s.
+
+// The UI always shows unified 1K/2K/4K options; OpenAI-style APIs take quality levels
+const RESOLUTION_TO_QUALITY: Record<string, string> = {
+  '1k': 'low',
+  '2k': 'medium',
+  '4k': 'high',
+}
+
+// OpenAI sizes only cover three fixed geometries — map any aspect ratio to the closest
+function mapSize(ratio: string): string {
+  if (!ratio || ratio === 'auto') return 'auto'
+  if (ratio === '1:1') return '1024x1024'
+  const [w, h] = ratio.split(':').map(Number)
+  if (!w || !h) return 'auto'
+  return w >= h ? '1536x1024' : '1024x1536'
+}
+
+// Guard against duplicate execution when the same task is polled concurrently
+// (multi-tab / resume). Reference images arrive as base64 data URLs and are not
+// persisted in tasks.json — the route layer hands them back via runtimeInput.
+const inFlight = new Map<string, Promise<PollOutcome>>()
+
+async function submit(): Promise<{ taskId: string }> {
+  return { taskId: `sync_${randomBytes(8).toString('hex')}` }
+}
+
+async function poll(
+  task: GenerationTask,
+  provider: ProviderConfig,
+  runtimeInput?: GenerateSubmitInput,
+): Promise<PollOutcome> {
+  let pending = inFlight.get(task.taskId)
+  if (!pending) {
+    pending = execute(task, provider, runtimeInput)
+    inFlight.set(task.taskId, pending)
+    const cleanup = () => inFlight.delete(task.taskId)
+    pending.then(cleanup, cleanup)
+  }
+  return pending
+}
+
+async function execute(
+  task: GenerationTask,
+  provider: ProviderConfig,
+  runtimeInput?: GenerateSubmitInput,
+): Promise<PollOutcome> {
+  try {
+    const referenceImages = runtimeInput?.image_urls || []
+    let data: any
+    if (referenceImages.length && provider.id === 'openai') {
+      // OpenAI official image editing goes through the multipart /images/edits endpoint
+      data = await callEditsEndpoint(task, provider, referenceImages)
+    } else {
+      const payload: Record<string, any> = {
+        model: task.modelId,
+        prompt: task.prompt,
+        n: 1,
+        size: mapSize(task.size),
+        quality: RESOLUTION_TO_QUALITY[task.resolution] || 'auto',
+        ...task.extra,
+      }
+      // OpenRouter / OpenAI-compatible providers accept reference images inline
+      if (referenceImages.length) payload.image = referenceImages
+      const response = await axios.post(`${provider.baseUrl}/images/generations`, payload, {
+        headers: {
+          'Authorization': `Bearer ${provider.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 600000,
+      })
+      data = response.data
+    }
+    if (data?.error) {
+      return { status: 'failed', error: data.error.message || 'image API error' }
+    }
+    const sources: ImageSource[] = []
+    for (const item of data?.data || []) {
+      if (item.b64_json) sources.push({ base64: item.b64_json })
+      else if (item.url) sources.push({ url: item.url })
+    }
+    if (!sources.length) return { status: 'failed', error: '上游响应中没有图片' }
+    return { status: 'completed', sources }
+  } catch (error: any) {
+    return { status: 'failed', error: extractErrorMessage(error) }
+  }
+}
+
+// OpenAI official /images/edits (multipart). Reference images are base64 data URLs.
+async function callEditsEndpoint(
+  task: GenerationTask,
+  provider: ProviderConfig,
+  referenceImages: string[],
+): Promise<any> {
+  const form = new FormData()
+  form.append('model', task.modelId)
+  form.append('prompt', task.prompt)
+  form.append('n', '1')
+  const size = mapSize(task.size)
+  if (size !== 'auto') form.append('size', size)
+  form.append('quality', RESOLUTION_TO_QUALITY[task.resolution] || 'auto')
+  referenceImages.forEach((dataUrl, i) => {
+    const match = dataUrl.match(/^data:(image\/[\w+.-]+);base64,(.+)$/)
+    const mime = match?.[1] || 'image/png'
+    const raw = match?.[2] || dataUrl
+    const ext = mime.split('/')[1]?.replace('jpeg', 'jpg') || 'png'
+    form.append('image[]', new Blob([Buffer.from(raw, 'base64')], { type: mime }), `ref_${i}.${ext}`)
+  })
+  const response = await axios.post(`${provider.baseUrl}/images/edits`, form, {
+    headers: { 'Authorization': `Bearer ${provider.apiKey}` },
+    timeout: 600000,
+  })
+  return response.data
+}
+
+export const openaiImagesAdapter: ProviderAdapter = { submit, poll }

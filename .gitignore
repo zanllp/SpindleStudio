@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-server
+release
+.env
+.env.local
+config.json
+tasks.json
+generated-images
+uploaded-images
+conversations
+*.log
+
+HANDOVER.md
