@@ -12,6 +12,7 @@ const messages = {
     copied: '已复制',
     copyFailed: '复制失败',
     newConversation: '新对话',
+    openInBrowser: '在浏览器打开',
   },
   sidebar: {
     settings: '设置',

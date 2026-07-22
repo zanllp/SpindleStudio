@@ -76,7 +76,7 @@ function resolveDataDir() {
     try {
       const dir = fs.readFileSync(file, 'utf-8').trim()
       if (dir) {
-        process.env.DATA_DIR = path.resolve(dir)
+        process.env.DATA_DIR = path.join(path.resolve(dir), 'data')
         console.log(`data dir from ${file}: ${process.env.DATA_DIR}`)
         return
       }
@@ -113,9 +113,15 @@ function waitForServer(url, timeoutMs = 15000) {
 function createWindow() {
   const win = new BrowserWindow(WINDOW_OPTIONS)
 
-  // Same-origin window.open (?conv=... multi-window links) gets a real app
-  // window; anything external goes to the system browser
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  // window.open routing:
+  //   - feature "external" → system browser (the header globe icon)
+  //   - same-origin → new Electron window (?conv=... multi-window)
+  //   - other http(s) → system browser
+  win.webContents.setWindowOpenHandler(({ url, features }) => {
+    if (features?.includes('external')) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
     try {
       if (new URL(url).origin === new URL(BASE_URL).origin) {
         return { action: 'allow', overrideBrowserWindowOptions: WINDOW_OPTIONS }

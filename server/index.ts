@@ -31,7 +31,29 @@ const PORT = Number(process.env.PORT) || 3210
 
 // Root directory for all user data (conversations, images, uploads, config).
 // Electron sets DATA_DIR to the app userData folder when packaged.
-const DATA_DIR = process.env.DATA_DIR || process.cwd()
+// In dev / headless B/S mode the default is ./data/ — a single subdirectory
+// that keeps user data out of the source tree.
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data')
+
+// One-time migration: if the parent of DATA_DIR has flat data files (old layout
+// from before data/ was consolidated) and DATA_DIR is still empty, move them in.
+async function migrateDataDir() {
+  try { await fs.access(path.join(DATA_DIR, 'config.json')); return } catch {}
+  const parent = path.dirname(DATA_DIR)
+  try { await fs.access(path.join(parent, 'config.json')) } catch { return }
+  if (parent === DATA_DIR) return // same dir, nothing to migrate
+
+  console.log(`Migrating data files from ${parent} to ${DATA_DIR} …`)
+  await fs.mkdir(DATA_DIR, { recursive: true })
+  let count = 0
+  for (const name of ['config.json', 'tasks.json', 'conversations', 'generated-images', 'uploaded-images']) {
+    try {
+      await fs.rename(path.join(parent, name), path.join(DATA_DIR, name))
+      count++
+    } catch { /* not present */ }
+  }
+  if (count) console.log(`Migration complete — ${count} item(s) moved.`)
+}
 const SAVE_DIR = path.join(DATA_DIR, 'generated-images')
 const CONVERSATIONS_DIR = path.join(DATA_DIR, 'conversations')
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploaded-images')
@@ -54,10 +76,6 @@ if (HTTPS_PROXY) {
   console.log(`HTTPS proxy: ${HTTPS_PROXY}`)
 }
 
-// Ensure data directories exist
-fs.mkdir(SAVE_DIR, { recursive: true })
-fs.mkdir(CONVERSATIONS_DIR, { recursive: true })
-fs.mkdir(UPLOADS_DIR, { recursive: true })
 
 // Base64 image payloads are large — raise the JSON body limit
 app.use(express.json({ limit: '50mb' }))
@@ -482,11 +500,16 @@ app.get('*', (req, res, next) => {
   })
 })
 
-Promise.all([initConfig(DATA_DIR), initTasks(DATA_DIR)]).then(() => {
+;(async () => {
+  await migrateDataDir()
+  await fs.mkdir(SAVE_DIR, { recursive: true })
+  await fs.mkdir(CONVERSATIONS_DIR, { recursive: true })
+  await fs.mkdir(UPLOADS_DIR, { recursive: true })
+  await Promise.all([initConfig(DATA_DIR), initTasks(DATA_DIR)])
   app.listen(PORT, () => {
     console.log(`GPT Image Chat server: http://localhost:${PORT}`)
     console.log(`Data directory: ${DATA_DIR}`)
     const ready = getConfig().providers.filter(p => p.enabled && p.apiKey).map(p => p.name)
     console.log(`Image providers: ${ready.length ? ready.join(', ') : 'NOT configured (open Settings in the app)'}`)
   })
-})
+})()

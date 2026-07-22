@@ -12,6 +12,7 @@ const messages: MessageSchema = {
     copied: 'Copied',
     copyFailed: 'Copy failed',
     newConversation: 'New Conversation',
+    openInBrowser: 'Open in Browser',
   },
   sidebar: {
     settings: 'Settings',

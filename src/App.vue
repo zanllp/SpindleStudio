@@ -10,6 +10,9 @@
             :title="chatStore.activeConversation.title"
           >{{ chatStore.activeConversation.title }}</span>
           <div class="header-right">
+            <a-tooltip :title="$t('common.openInBrowser')">
+              <span class="header-icon" @click="openInBrowser"><GlobalOutlined /></span>
+            </a-tooltip>
             <a-select
               :value="themeStore.themeId"
               :options="THEME_OPTIONS"
@@ -38,7 +41,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
-import { BgColorsOutlined } from '@ant-design/icons-vue'
+import { BgColorsOutlined, GlobalOutlined } from '@ant-design/icons-vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import SettingsView from '@/components/SettingsView.vue'
 import WelcomeModal from '@/components/WelcomeModal.vue'
@@ -55,6 +58,15 @@ const settingsStore = useSettingsStore()
 function initialConversationId(): string | null {
   const id = new URLSearchParams(window.location.search).get('conv')
   return id && chatStore.conversationList.some(c => c.id === id) ? id : null
+}
+
+// 在系统浏览器中打开
+// Electron: feature "external" → main.cjs 的 setWindowOpenHandler 调 shell.openExternal
+// 浏览器: window.open 直接开新标签页，浏览器忽略不识别的 feature
+function openInBrowser() {
+  const convId = chatStore.activeConversationId
+  const url = convId ? `${window.location.origin}/?conv=${convId}` : window.location.origin
+  window.open(url, '_blank', 'external')
 }
 
 // 窗口标题跟随会话，多窗口切换（任务栏/alt-tab）时可辨
@@ -137,6 +149,24 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* 顶栏图标按钮（浏览器打开等），弱化成文本级控件 */
+.header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--header-text);
+  opacity: 0.66;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+.header-icon:hover {
+  opacity: 1;
+  background: var(--item-hover-bg, rgba(128, 128, 128, 0.12));
 }
 
 .chat-container {
