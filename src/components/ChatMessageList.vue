@@ -3,14 +3,14 @@
     <div class="messages-column">
       <div v-if="!chatStore.activeConversation" class="empty-state">
         <PictureOutlined class="empty-icon" />
-        <p>选择左侧对话，或新建一个对话开始生图</p>
-        <p class="empty-sub">每条消息都是一条生图提示词；引用或上传图片即为图生图</p>
+        <p>{{ $t('chat.message.emptyNoConversation') }}</p>
+        <p class="empty-sub">{{ $t('chat.message.emptySub') }}</p>
       </div>
 
       <template v-else>
         <div v-if="chatStore.activeConversation.messages.length === 0" class="empty-state">
           <PictureOutlined class="empty-icon" />
-          <p>输入提示词开始生成图片</p>
+          <p>{{ $t('chat.message.emptyNoMessages') }}</p>
         </div>
 
         <div
@@ -27,12 +27,12 @@
                   v-model:value="editingText"
                   :bordered="false"
                   :auto-size="{ minRows: 3, maxRows: 16 }"
-                  placeholder="编辑提示词，Enter 重新发送，Shift+Enter 换行"
+                  :placeholder="$t('chat.message.editPlaceholder')"
                   @pressEnter="handleEditEnter"
                 />
                 <div class="edit-actions">
-                  <AppButton size="small" @click="cancelEdit">取消</AppButton>
-                  <AppButton size="small" type="primary" @click="confirmEdit">重新发送</AppButton>
+                  <AppButton size="small" @click="cancelEdit">{{ $t('common.cancel') }}</AppButton>
+                  <AppButton size="small" type="primary" @click="confirmEdit">{{ $t('chat.message.resend') }}</AppButton>
                 </div>
               </template>
               <template v-else>
@@ -50,23 +50,23 @@
               </template>
             </div>
             <div v-if="editingId !== msg.id" class="msg-actions">
-              <a-tooltip title="回填到输入框">
+              <a-tooltip :title="$t('chat.message.fillBack')">
                 <button class="icon-btn" @click="chatStore.setDraftPrompt(msg.prompt, msg.referenceImages)">
                   <RollbackOutlined />
                 </button>
               </a-tooltip>
-              <a-tooltip v-if="canEdit(msg)" title="编辑并重新发送">
+              <a-tooltip v-if="canEdit(msg)" :title="$t('chat.message.editTooltip')">
                 <button class="icon-btn" @click="startEdit(msg)">
                   <EditOutlined />
                 </button>
               </a-tooltip>
               <a-popconfirm
-                title="删除该消息及其生成结果？"
-                ok-text="删除"
-                cancel-text="取消"
+                :title="$t('chat.message.deleteConfirm')"
+                :ok-text="$t('common.delete')"
+                :cancel-text="$t('common.cancel')"
                 @confirm="handleDelete(msg)"
               >
-                <a-tooltip title="删除">
+                <a-tooltip :title="$t('common.delete')">
                   <button class="icon-btn delete-btn">
                     <DeleteOutlined />
                   </button>
@@ -92,18 +92,18 @@
               >
                 <a-image :src="img.url" class="gen-img" />
                 <div class="img-overlay">
-                  <a-tooltip title="引用此图继续生成">
+                  <a-tooltip :title="$t('chat.message.referenceTooltip')">
                     <button class="overlay-btn" @click="handleReference(img)">
                       <LinkOutlined />
                     </button>
                   </a-tooltip>
-                  <a-tooltip title="查看生成参数">
+                  <a-tooltip :title="$t('chat.message.paramsTooltip')">
                     <button class="overlay-btn" @click="openParams(img)">
                       <InfoCircleOutlined />
                     </button>
                   </a-tooltip>
                   <a :href="img.url" :download="img.filename">
-                    <a-tooltip title="下载">
+                    <a-tooltip :title="$t('chat.message.downloadTooltip')">
                       <button class="overlay-btn">
                         <DownloadOutlined />
                       </button>
@@ -113,7 +113,7 @@
                 <span v-if="img.generationTime" class="gen-time">{{ img.generationTime.toFixed(1) }}s</span>
               </div>
               <!-- 追加生成一张：复用本消息的提示词与参考图，生成中也可点 -->
-              <a-tooltip v-if="msg.status === 'done' || msg.status === 'generating'" title="再生成一张">
+              <a-tooltip v-if="msg.status === 'done' || msg.status === 'generating'" :title="$t('chat.message.generateOneMore')">
                 <button class="add-image-btn" @click="handleGenerateMore(msg)">
                   <PlusOutlined />
                 </button>
@@ -133,10 +133,10 @@
             <div v-else-if="msg.status === 'error'" class="error-box">
               <CloseCircleFilled class="error-icon" />
               <div class="error-content">
-                <div class="error-title">生成失败</div>
+                <div class="error-title">{{ $t('chat.message.errorTitle') }}</div>
                 <div class="error-desc">{{ msg.error }}</div>
               </div>
-              <AppButton size="small" @click="chatStore.retryMessage(msg.id)">重试</AppButton>
+              <AppButton size="small" @click="chatStore.retryMessage(msg.id)">{{ $t('common.retry') }}</AppButton>
             </div>
           </div>
         </div>
@@ -146,14 +146,14 @@
     <!-- 生成参数模态框 -->
     <a-modal
       v-model:open="paramsVisible"
-      title="生成参数"
+      :title="$t('chat.message.paramsModalTitle')"
       :footer="null"
       :width="720"
     >
       <div v-if="paramsImage">
         <img :src="paramsImage.url" style="width: 100%; border-radius: 10px;" />
         <a-descriptions :column="2" bordered size="small" style="margin-top: 16px;">
-          <a-descriptions-item label="Prompt" :span="2">
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.prompt')" :span="2">
             <div style="display: flex; align-items: flex-start; gap: 8px;">
               <span style="white-space: pre-wrap; word-break: break-word; flex: 1;">{{ paramsImage.prompt }}</span>
               <AppButton size="small" @click="copyPrompt(paramsImage.prompt)">
@@ -161,19 +161,19 @@
               </AppButton>
             </div>
           </a-descriptions-item>
-          <a-descriptions-item label="Model">
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.model')">
             {{ paramsImage.metadata?.model || '-' }}
           </a-descriptions-item>
-          <a-descriptions-item label="Size">
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.size')">
             {{ paramsImage.metadata?.size || '-' }}
           </a-descriptions-item>
-          <a-descriptions-item label="来源">
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.source')">
             {{ providerLabel(paramsImage.provider, paramsImage.model) }}
           </a-descriptions-item>
-          <a-descriptions-item label="耗时">
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.duration')">
             {{ paramsImage.generationTime ? paramsImage.generationTime.toFixed(1) + 's' : '-' }}
           </a-descriptions-item>
-          <a-descriptions-item label="文件名" :span="2">
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.filename')" :span="2">
             {{ paramsImage.filename }}
           </a-descriptions-item>
         </a-descriptions>
@@ -199,6 +199,7 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import AppButton from './AppButton.vue'
@@ -206,6 +207,7 @@ import type { ChatGeneratedImage, ChatMessage, ChatProvider } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 const listRef = ref<HTMLElement | null>(null)
 
 // ==================== 原地编辑 ====================
@@ -255,9 +257,9 @@ function openParams(img: ChatGeneratedImage) {
 async function copyPrompt(prompt: string) {
   try {
     await navigator.clipboard.writeText(prompt)
-    message.success('已复制')
+    message.success(t('common.copied'))
   } catch {
-    message.error('复制失败')
+    message.error(t('errors.copyFailed'))
   }
 }
 
@@ -273,9 +275,15 @@ function remainingShimmerCount(msg: ChatMessage): number {
 function generatingText(msg: ChatMessage): string {
   const total = msg.count || 1
   const done = msg.generatedImages.length
-  const base = total > 1 ? `正在生成 ${total} 张图片` : '正在生成图片'
-  const progress = done > 0 && done < total ? `，已完成 ${done}/${total}` : ''
-  return `${base}…（${providerLabel(msg.provider, msg.model)}${progress}）`
+  const base = total > 1
+    ? t('chat.message.generatingPlural', { n: total })
+    : t('chat.message.generatingSingle')
+  const progress = done > 0 && done < total ? t('chat.message.progressDone', { done, total }) : ''
+  return t('chat.message.generatingWrap', {
+    base,
+    provider: providerLabel(msg.provider, msg.model),
+    progress,
+  })
 }
 
 function handleReference(img: ChatGeneratedImage) {
@@ -297,11 +305,13 @@ function handleDelete(msg: ChatMessage) {
     return
   }
   Modal.confirm({
-    title: '该记录有已生成的图片',
-    content: `包含 ${imageCount} 张已生成图片，删除后记录无法恢复（图片文件会保留）。确定删除？`,
-    okText: '删除',
+    title: t('chat.message.deleteModalTitle'),
+    content: imageCount > 1
+      ? t('chat.message.deleteModalContentPlural', { imageCount })
+      : t('chat.message.deleteModalContentSingle', { imageCount }),
+    okText: t('common.delete'),
     okType: 'danger',
-    cancelText: '取消',
+    cancelText: t('common.cancel'),
     onOk: () => chatStore.deleteMessage(msg.id),
   })
 }

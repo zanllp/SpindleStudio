@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { withRetry } from '../lib/retry'
 import type {
   GenerateSubmitInput,
   GenerationTask,
@@ -24,14 +25,17 @@ async function submit(
     ...model.extra,
   }
   if (input.image_urls?.length) payload.image_urls = input.image_urls
-  const response = await axios.post(`${provider.baseUrl}/images/generations`, payload, {
-    headers: {
-      'Authorization': `Bearer ${provider.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    // img2img uploads base64 reference images — allow a longer timeout
-    timeout: 120000,
-  })
+  const response = await withRetry(
+    () => axios.post(`${provider.baseUrl}/images/generations`, payload, {
+      headers: {
+        'Authorization': `Bearer ${provider.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      // img2img uploads base64 reference images — allow a longer timeout
+      timeout: 120000,
+    }),
+    `apimart submit [${provider.id}/${model.id}]`,
+  )
   if (response.data?.error) {
     throw new Error(response.data.error.message || 'image API error')
   }
@@ -40,10 +44,13 @@ async function submit(
 }
 
 async function poll(task: GenerationTask, provider: ProviderConfig): Promise<PollOutcome> {
-  const response = await axios.get(`${provider.baseUrl}/tasks/${task.taskId}`, {
-    headers: { 'Authorization': `Bearer ${provider.apiKey}` },
-    timeout: 60000,
-  })
+  const response = await withRetry(
+    () => axios.get(`${provider.baseUrl}/tasks/${task.taskId}`, {
+      headers: { 'Authorization': `Bearer ${provider.apiKey}` },
+      timeout: 60000,
+    }),
+    `apimart poll [${task.taskId}]`,
+  )
   const taskData = response.data.data
   if (taskData.status === 'completed') {
     const urls: string[] = []

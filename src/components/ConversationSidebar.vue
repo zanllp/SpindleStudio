@@ -2,12 +2,12 @@
   <div class="conversation-sidebar">
     <button class="new-chat-btn" @click="handleCreate">
       <PlusOutlined />
-      <span>新对话</span>
+      <span>{{ $t('common.newConversation') }}</span>
     </button>
 
     <a-spin :spinning="chatStore.isLoadingList" style="width: 100%;">
       <div v-if="chatStore.conversationList.length === 0" class="empty-tip">
-        暂无对话
+        {{ $t('sidebar.empty') }}
       </div>
       <div
         v-for="conv in chatStore.conversationList"
@@ -18,16 +18,19 @@
       >
         <span class="conversation-title" :title="conv.title">{{ conv.title }}</span>
         <span class="conversation-actions" @click.stop>
-          <a-tooltip title="重命名">
+          <a-tooltip :title="$t('sidebar.openInNewWindow')">
+            <ExportOutlined class="action-icon" @click="openInNewWindow(conv.id)" />
+          </a-tooltip>
+          <a-tooltip :title="$t('sidebar.rename')">
             <EditOutlined class="action-icon" @click="openRename(conv)" />
           </a-tooltip>
           <a-popconfirm
-            title="确定删除该对话？"
-            ok-text="删除"
-            cancel-text="取消"
+            :title="$t('sidebar.deleteConfirm')"
+            :ok-text="$t('common.delete')"
+            :cancel-text="$t('common.cancel')"
             @confirm="chatStore.deleteConversation(conv.id)"
           >
-            <a-tooltip title="删除">
+            <a-tooltip :title="$t('common.delete')">
               <DeleteOutlined class="action-icon delete-icon" />
             </a-tooltip>
           </a-popconfirm>
@@ -36,25 +39,27 @@
     </a-spin>
 
     <div class="sidebar-footer">
+      <button class="settings-entry" @click="openNewWindow">
+        <WindowsOutlined />
+        <span>{{ $t('sidebar.newWindow') }}</span>
+      </button>
       <button class="settings-entry" @click="settingsStore.settingsOpen = true">
         <SettingOutlined />
-        <span>设置</span>
+        <span>{{ $t('sidebar.settings') }}</span>
       </button>
     </div>
 
     <a-modal
       v-model:open="renameModalOpen"
-      title="重命名对话"
-      ok-text="确定"
-      cancel-text="取消"
+      :title="$t('sidebar.renameTitle')"
       @ok="handleRenameOk"
     >
       <div class="rename-row">
-        <a-input v-model:value="renameValue" placeholder="对话标题" @pressEnter="handleRenameOk" />
-        <a-tooltip title="根据对话中的用户消息，让 AI 概括一个标题">
+        <a-input v-model:value="renameValue" :placeholder="$t('sidebar.renamePlaceholder')" @pressEnter="handleRenameOk" />
+        <a-tooltip :title="$t('sidebar.aiSummarizeTooltip')">
           <AppButton :loading="aiTitleLoading" @click="handleAiSummarize">
             <RobotOutlined />
-            AI 总结
+            {{ $t('sidebar.aiSummarize') }}
           </AppButton>
         </a-tooltip>
       </div>
@@ -64,8 +69,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { PlusOutlined, EditOutlined, DeleteOutlined, RobotOutlined, SettingOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, EditOutlined, DeleteOutlined, RobotOutlined, SettingOutlined, ExportOutlined, WindowsOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import AppButton from './AppButton.vue'
@@ -73,6 +79,7 @@ import type { ConversationSummary } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 
 const renameModalOpen = ref(false)
 const renameValue = ref('')
@@ -81,6 +88,17 @@ const aiTitleLoading = ref(false)
 
 async function handleCreate() {
   await chatStore.createNewConversation()
+}
+
+// 多窗口：新窗口直达指定会话（Electron 里开 BrowserWindow，浏览器里开新标签页）
+function openInNewWindow(convId: string) {
+  window.open(`${window.location.origin}/?conv=${convId}`, '_blank')
+}
+
+// 新建窗口：打开当前选中的会话（无选中时退回最近会话，与启动逻辑一致）
+function openNewWindow() {
+  const convId = chatStore.activeConversationId
+  window.open(convId ? `${window.location.origin}/?conv=${convId}` : window.location.origin, '_blank')
 }
 
 function openRename(conv: ConversationSummary) {
@@ -103,7 +121,7 @@ async function handleAiSummarize() {
   try {
     renameValue.value = await chatStore.summarizeTitle(renamingId.value)
   } catch (e: any) {
-    message.error(e.response?.data?.error || e.message || 'AI 总结失败')
+    message.error(e.response?.data?.error || e.message || t('errors.aiSummarizeFailed'))
   } finally {
     aiTitleLoading.value = false
   }

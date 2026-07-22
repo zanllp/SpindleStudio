@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { promises as fs } from 'fs'
 import path from 'path'
 import sharp from 'sharp'
+import { withRetry } from './retry'
 import type { ImageSource } from '../providers/types'
 
 export interface SavedImageResult {
@@ -145,7 +146,10 @@ export async function saveGeneratedImages(
       const raw = src.base64.startsWith('data:') ? src.base64.split(',').pop()! : src.base64
       imageBuffer = Buffer.from(raw, 'base64')
     } else if (src.url) {
-      const imgResp = await axios.get(src.url, { responseType: 'arraybuffer', timeout: 60000 })
+      const imgResp = await withRetry(
+        () => axios.get(src.url!, { responseType: 'arraybuffer', timeout: 60000 }),
+        `image download [${taskId}]`,
+      )
       imageBuffer = Buffer.from(imgResp.data)
     } else {
       continue

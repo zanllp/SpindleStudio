@@ -1,8 +1,8 @@
 <template>
   <div v-if="settingsStore.settingsOpen" class="settings-overlay" @keydown.esc="close">
     <div class="settings-header">
-      <span class="settings-title">设置</span>
-      <button class="settings-close" title="关闭" @click="close">
+      <span class="settings-title">{{ $t('settings.title') }}</span>
+      <button class="settings-close" :title="$t('common.close')" @click="close">
         <CloseOutlined />
       </button>
     </div>
@@ -16,24 +16,39 @@
           @click="section = item.key"
         >
           <component :is="item.icon" class="nav-icon" />
-          <span>{{ item.label }}</span>
+          <span>{{ $t(`settings.nav.${item.key}`) }}</span>
         </div>
       </nav>
       <div class="settings-content">
-        <template v-if="section === 'providers'">
+        <div v-if="section === 'general'" class="general-form">
+          <div class="form-title">{{ $t('settings.nav.general') }}</div>
+          <div class="form-item">
+            <div class="form-label">{{ $t('settings.general.language') }}</div>
+            <a-radio-group
+              :value="localePreference"
+              button-style="solid"
+              @change="(e: any) => setLocale(e.target.value)"
+            >
+              <a-radio-button value="auto">{{ $t('settings.general.auto') }}</a-radio-button>
+              <a-radio-button value="zh-CN">{{ $t('settings.general.zhCN') }}</a-radio-button>
+              <a-radio-button value="en-US">{{ $t('settings.general.enUS') }}</a-radio-button>
+            </a-radio-group>
+          </div>
+        </div>
+        <template v-else-if="section === 'providers'">
           <SettingsProviderList :selected-id="editingProviderId" @select="editingProviderId = $event" />
           <SettingsProviderForm v-if="editingProviderId" :key="editingProviderId" :provider-id="editingProviderId" />
-          <div v-else class="form-empty">请选择或添加一个供应商</div>
+          <div v-else class="form-empty">{{ $t('settings.providers.empty') }}</div>
         </template>
         <div v-else class="ai-chat-form">
-          <div class="form-title">AI 总结</div>
-          <p class="form-tip">用于会话标题的「AI 总结」功能（可选），任意 OpenAI 兼容接口。</p>
+          <div class="form-title">{{ $t('settings.aiChat.title') }}</div>
+          <p class="form-tip">{{ $t('settings.aiChat.tip') }}</p>
           <div class="form-item">
-            <div class="form-label">API 密钥</div>
+            <div class="form-label">{{ $t('settings.aiChat.apiKey') }}</div>
             <a-input-password v-model:value="aiChatDraft.apiKey" placeholder="sk-..." @blur="saveAiChat" />
           </div>
           <div class="form-item">
-            <div class="form-label">API 地址</div>
+            <div class="form-label">{{ $t('settings.aiChat.baseUrl') }}</div>
             <a-input v-model:value="aiChatDraft.baseUrl" placeholder="https://api.openai.com/v1" @blur="saveAiChat" />
           </div>
         </div>
@@ -44,20 +59,24 @@
 
 <script setup lang="ts">
 import { ref, watch, markRaw } from 'vue'
-import { CloseOutlined, CloudOutlined, RobotOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, CloudOutlined, GlobalOutlined, RobotOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useSettingsStore } from '@/stores/settings'
+import { localePreference, setLocale } from '@/i18n'
+import { useI18n } from 'vue-i18n'
 import SettingsProviderList from './SettingsProviderList.vue'
 import SettingsProviderForm from './SettingsProviderForm.vue'
 
 const NAV_ITEMS = [
-  { key: 'providers', label: '模型服务', icon: markRaw(CloudOutlined) },
-  { key: 'aiChat', label: 'AI 总结', icon: markRaw(RobotOutlined) },
+  { key: 'general', icon: markRaw(GlobalOutlined) },
+  { key: 'providers', icon: markRaw(CloudOutlined) },
+  { key: 'aiChat', icon: markRaw(RobotOutlined) },
 ] as const
 
 type SectionKey = (typeof NAV_ITEMS)[number]['key']
 
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 const section = ref<SectionKey>('providers')
 const editingProviderId = ref('')
 const aiChatDraft = ref({ apiKey: '', baseUrl: '' })
@@ -84,7 +103,7 @@ async function saveAiChat() {
   try {
     await settingsStore.saveAiChat(aiChatDraft.value.apiKey.trim(), aiChatDraft.value.baseUrl.trim())
   } catch (e: any) {
-    message.error(e.response?.data?.error || e.message || '保存失败')
+    message.error(e.response?.data?.error || e.message || t('errors.saveFailed'))
   }
 }
 </script>
@@ -194,7 +213,8 @@ async function saveAiChat() {
   font-size: 14px;
 }
 
-.ai-chat-form {
+.ai-chat-form,
+.general-form {
   flex: 1;
   padding: 24px;
   overflow-y: auto;

@@ -56,6 +56,16 @@ npm start            # http://localhost:3210
 
 数据（会话、生成的图片、上传的参考图、配置）默认保存在项目目录下；Electron 打包版保存在系统 userData 目录。
 
+### 自定义数据目录（共享既有数据）
+
+打包版可以把数据目录指向任意已有目录（类似 IIB 的 `sd_webui_dir`），优先级：`DATA_DIR` 环境变量 > exe 同目录 `data-dir.txt` > userData 下 `data-dir.txt` > 默认。文件内容就是一行绝对路径，例如：
+
+```
+C:\Users\me\repo\gpt-image-chat
+```
+
+指向本仓库目录后，打包版与开发模式共用同一份会话 / 图片 / 配置。纯 Node 运行（`npm start`）用 `DATA_DIR` 环境变量即可。如需一次性导入而不是共享，用 `npm run migrate -- <源目录> [目标目录]`（幂等增量复制会话与图片）。
+
 ---
 
 ## English
@@ -85,6 +95,8 @@ Fill in your API key in the settings dialog on first launch.
 
 Desktop: `npm run dev:electron` (dev), `npm run dist:win` (Windows installer / portable).
 Headless: `npm run build && npm start` → http://localhost:3210.
+
+Data (conversations, generated images, uploads, config) lives in the project directory by default; packaged builds use the OS userData dir. To point a packaged build at an existing data directory (IIB `sd_webui_dir`-style), set the `DATA_DIR` env var, or create a `data-dir.txt` file next to the exe (or in userData) containing one absolute path. One-shot import instead of sharing: `npm run migrate -- <sourceDir> [destDir]`.
 
 ## License
 

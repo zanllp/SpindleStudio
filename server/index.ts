@@ -10,6 +10,7 @@ import { getConfig, initConfig, saveConfig } from './lib/config'
 import { createTask, getTask, initTasks, updateTask } from './lib/tasks'
 import { saveGeneratedImages } from './lib/image-save'
 import { extractErrorMessage } from './lib/error'
+import { t } from './lib/i18n'
 import { apimartAdapter } from './providers/apimart'
 import { openaiImagesAdapter } from './providers/openai-images'
 import type {
@@ -100,9 +101,9 @@ app.post('/api/generate/submit', async (req, res) => {
       image_urls: Array.isArray(req.body?.image_urls) ? req.body.image_urls : undefined,
     }
     const provider = getConfig().providers.find(p => p.id === input.providerId)
-    if (!provider) return res.status(400).json({ error: '未知供应商，请在设置中检查供应商配置' })
-    if (!provider.apiKey) return res.status(400).json({ error: `${provider.name} 的 API Key 未配置，请先在设置中填写` })
-    if (!input.prompt.trim()) return res.status(400).json({ error: '缺少提示词' })
+    if (!provider) return res.status(400).json({ error: t(req, 'unknownProvider') })
+    if (!provider.apiKey) return res.status(400).json({ error: t(req, 'apiKeyMissing', { provider: provider.name }) })
+    if (!input.prompt.trim()) return res.status(400).json({ error: t(req, 'promptRequired') })
 
     const model = provider.models.find(m => m.id === input.modelId) || { id: input.modelId, label: input.modelId }
     const adapter = adapters[provider.type]
@@ -145,14 +146,14 @@ app.get('/api/generate/task/:taskId', async (req, res) => {
 
     if (task) {
       provider = getConfig().providers.find(p => p.id === task!.providerId)
-      if (!provider) return res.status(400).json({ error: `任务所属供应商 ${task.providerId} 已不存在` })
+      if (!provider) return res.status(400).json({ error: t(req, 'providerGone', { id: task!.providerId }) })
     } else {
       // Task not in the registry: created before tasks.json existed (or by an older
       // build). Those were all API Mart tasks — fall back with default metadata.
       isLegacy = true
       provider = getConfig().providers.find(p => p.id === 'apimart')
       if (!provider?.apiKey) {
-        return res.status(400).json({ error: 'API Mart 的 API Key 未配置，无法恢复旧任务' })
+        return res.status(400).json({ error: t(req, 'legacyKeyMissing') })
       }
       task = {
         taskId,
@@ -230,7 +231,7 @@ app.post('/api/ai-chat', async (req, res) => {
   try {
     const aiChat = getConfig().aiChat
     if (!aiChat.apiKey) {
-      return res.status(500).json({ error: 'OpenAI API Key 未配置（可选功能，在设置中填写后可用）' })
+      return res.status(500).json({ error: t(req, 'aiChatNotConfigured') })
     }
 
     const response = await axios.post(
@@ -299,7 +300,7 @@ app.post('/api/conversations', async (req, res) => {
     const now = Date.now()
     const conversation = {
       id,
-      title: req.body.title || '新对话',
+      title: req.body.title || t(req, 'newConversationTitle'),
       createdAt: now,
       updatedAt: now,
       messages: [],
@@ -315,11 +316,11 @@ app.post('/api/conversations', async (req, res) => {
 app.get('/api/conversations/:id', async (req, res) => {
   try {
     const filepath = conversationFilePath(req.params.id)
-    if (!filepath) return res.status(400).json({ error: '非法会话 ID' })
+    if (!filepath) return res.status(400).json({ error: t(req, 'invalidConversationId') })
     const raw = await fs.readFile(filepath, 'utf-8')
     res.json(JSON.parse(raw))
   } catch (error: any) {
-    if (error.code === 'ENOENT') return res.status(404).json({ error: '会话不存在' })
+    if (error.code === 'ENOENT') return res.status(404).json({ error: t(req, 'conversationNotFound') })
     res.status(500).json({ error: error.message })
   }
 })
@@ -328,10 +329,10 @@ app.get('/api/conversations/:id', async (req, res) => {
 app.put('/api/conversations/:id', async (req, res) => {
   try {
     const filepath = conversationFilePath(req.params.id)
-    if (!filepath) return res.status(400).json({ error: '非法会话 ID' })
+    if (!filepath) return res.status(400).json({ error: t(req, 'invalidConversationId') })
     const data = req.body
     if (!data || data.id !== req.params.id) {
-      return res.status(400).json({ error: '会话数据与 ID 不匹配' })
+      return res.status(400).json({ error: t(req, 'conversationMismatch') })
     }
     await fs.writeFile(filepath, JSON.stringify(data, null, 2))
     res.json({ success: true })
@@ -360,7 +361,7 @@ async function writeUploadStats(stats: Record<string, number>): Promise<void> {
 app.delete('/api/conversations/:id', async (req, res) => {
   try {
     const filepath = conversationFilePath(req.params.id)
-    if (!filepath) return res.status(400).json({ error: '非法会话 ID' })
+    if (!filepath) return res.status(400).json({ error: t(req, 'invalidConversationId') })
     await fs.rm(filepath, { force: true })
     await fs.rm(path.join(UPLOADS_DIR, req.params.id), { recursive: true, force: true })
     const stats = await readUploadStats()
@@ -382,15 +383,15 @@ app.delete('/api/conversations/:id', async (req, res) => {
 app.post('/api/conversations/:id/upload', async (req, res) => {
   try {
     const safeId = sanitizeConversationId(req.params.id)
-    if (!safeId) return res.status(400).json({ error: '非法会话 ID' })
+    if (!safeId) return res.status(400).json({ error: t(req, 'invalidConversationId') })
 
     const { filename, base64 } = req.body
     if (!base64 || typeof base64 !== 'string') {
-      return res.status(400).json({ error: '缺少 base64 图片数据' })
+      return res.status(400).json({ error: t(req, 'base64Required') })
     }
 
     const match = base64.match(/^data:image\/(png|jpe?g|webp|gif);base64,(.+)$/)
-    if (!match) return res.status(400).json({ error: '仅支持 png/jpg/webp/gif 图片' })
+    if (!match) return res.status(400).json({ error: t(req, 'unsupportedImageType') })
 
     const extMap: Record<string, string> = { png: 'png', jpg: 'jpg', jpeg: 'jpg', webp: 'webp', gif: 'gif' }
     const ext = extMap[match[1]] || 'png'
@@ -449,7 +450,7 @@ app.get('/api/uploads', async (_req, res) => {
 app.post('/api/uploads/usage', async (req, res) => {
   try {
     const rel = String(req.body.relativePath || '')
-    if (!/^[\w-]+\/[\w.一-龥-]+$/.test(rel)) return res.status(400).json({ error: '非法路径' })
+    if (!/^[\w-]+\/[\w.一-龥-]+$/.test(rel)) return res.status(400).json({ error: t(req, 'invalidPath') })
     const stats = await readUploadStats()
     stats[rel] = (stats[rel] || 0) + 1
     await writeUploadStats(stats)

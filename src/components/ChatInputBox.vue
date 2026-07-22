@@ -4,7 +4,7 @@
       <!-- 待发送的参考图 -->
       <div v-if="chatStore.pendingReferenceImages.length > 0" class="pending-refs">
         <div v-for="ref in chatStore.pendingReferenceImages" :key="ref.id" class="ref-thumb">
-          <img :src="ref.url" alt="参考图" />
+          <img :src="ref.url" :alt="$t('chat.input.refAlt')" />
           <CloseCircleFilled class="remove-ref" @click="chatStore.removePendingReference(ref.id)" />
         </div>
       </div>
@@ -15,7 +15,7 @@
           v-model:value="inputValue"
           :auto-size="{ minRows: 1, maxRows: 8 }"
           :bordered="false"
-          placeholder="描述想生成的图片，引用或上传图片即为图生图"
+          :placeholder="$t('chat.input.placeholder')"
           @pressEnter="handlePressEnter"
           @paste="handlePaste"
         />
@@ -26,11 +26,11 @@
             <a-popover trigger="hover" placement="topLeft" @openChange="loadUploadHistory">
               <template #content>
                 <div class="upload-history">
-                  <div class="upload-history-title">最近上传</div>
+                  <div class="upload-history-title">{{ $t('chat.input.recentUploads') }}</div>
                   <div v-if="uploadHistoryLoading" class="upload-history-empty">
                     <a-spin size="small" />
                   </div>
-                  <div v-else-if="uploadHistory.length === 0" class="upload-history-empty">暂无上传记录</div>
+                  <div v-else-if="uploadHistory.length === 0" class="upload-history-empty">{{ $t('chat.input.noUploads') }}</div>
                   <div v-else class="upload-history-grid">
                     <div
                       v-for="item in uploadHistory"
@@ -50,7 +50,7 @@
                 :before-upload="handleBeforeUpload"
                 accept="image/png,image/jpeg,image/webp,image/gif"
               >
-                <button class="tool-btn" title="上传参考图">
+                <button class="tool-btn" :title="$t('chat.input.uploadTooltip')">
                   <PaperClipOutlined />
                 </button>
               </a-upload>
@@ -60,23 +60,23 @@
             <a-popover trigger="click" placement="topLeft">
               <template #content>
                 <div class="params-panel">
-                  <div class="param-label">画面比例</div>
+                  <div class="param-label">{{ $t('chat.input.sizeLabel') }}</div>
                   <a-select v-model:value="chatStore.chatSize" :options="sizeOptions" size="small" style="width: 100%;" />
-                  <div class="param-label" style="margin-top: 10px;">分辨率</div>
+                  <div class="param-label" style="margin-top: 10px;">{{ $t('chat.input.resolutionLabel') }}</div>
                   <a-radio-group v-model:value="chatStore.chatResolution" size="small" button-style="solid">
                     <a-radio-button value="1k">1K</a-radio-button>
                     <a-radio-button value="2k">2K</a-radio-button>
-                    <a-radio-button value="4k" :disabled="is4kConstrained" :title="is4kConstrained ? '4K 仅支持宽屏比例' : ''">4K</a-radio-button>
+                    <a-radio-button value="4k" :disabled="is4kConstrained" :title="is4kConstrained ? $t('chat.input.resolution4kTooltip') : ''">4K</a-radio-button>
                   </a-radio-group>
                 </div>
               </template>
-              <button class="tool-btn" title="生成参数">
+              <button class="tool-btn" :title="$t('chat.input.paramsTooltip')">
                 <ControlOutlined />
               </button>
             </a-popover>
 
             <!-- 生成张数：迷你步进器 -->
-            <a-tooltip title="生成张数">
+            <a-tooltip :title="$t('chat.input.countTooltip')">
               <div class="count-stepper">
                 <button
                   class="stepper-btn"
@@ -103,23 +103,23 @@
               :bordered="false"
               class="model-select"
               :options="modelOptions"
-              :placeholder="settingsStore.hasUsableProvider ? '选择模型' : '请先在设置中配置供应商'"
+              :placeholder="settingsStore.hasUsableProvider ? $t('chat.input.modelPlaceholder') : $t('chat.input.noProviderPlaceholder')"
               @change="handleModelChange"
             />
 
             <!-- 模式指示 -->
             <span class="mode-indicator" :class="{ img2img: chatStore.isImg2Img }">
-              <span class="mode-dot"></span>{{ chatStore.isImg2Img ? '图生图' : '文生图' }}
+              <span class="mode-dot"></span>{{ chatStore.isImg2Img ? $t('chat.input.img2img') : $t('chat.input.txt2img') }}
             </span>
           </div>
 
-          <button class="send-btn" :disabled="!inputValue.trim()" title="发送" @click="handleSend">
+          <button class="send-btn" :disabled="!inputValue.trim()" :title="$t('chat.input.sendTooltip')" @click="handleSend">
             <ArrowUpOutlined />
           </button>
         </div>
       </div>
 
-      <div class="input-hint">Enter 发送 · Shift+Enter 换行</div>
+      <div class="input-hint">{{ $t('chat.input.hint') }}</div>
     </div>
   </div>
 </template>
@@ -128,6 +128,7 @@
 import { ref, computed, watch } from 'vue'
 import { PaperClipOutlined, ArrowUpOutlined, CloseCircleFilled, ControlOutlined, MinusOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import api from '@/api'
@@ -135,6 +136,7 @@ import type { UploadHistoryItem } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 const inputValue = ref('')
 
 // 生成张数范围（每张图一个独立请求，上限避免一次打太多并发）
@@ -176,23 +178,11 @@ function pickUpload(item: UploadHistoryItem) {
   chatStore.addPendingReference({ url: item.url, filename: item.filename })
 }
 
-// 与工作台 API Mart 面板一致的比例选项
-const sizeOptions = [
-  { label: '自动 (auto)', value: 'auto' },
-  { label: '1:1 正方形', value: '1:1' },
-  { label: '3:2 横向', value: '3:2' },
-  { label: '2:3 竖向', value: '2:3' },
-  { label: '4:3 横向', value: '4:3' },
-  { label: '3:4 竖向', value: '3:4' },
-  { label: '5:4 横向', value: '5:4' },
-  { label: '4:5 竖向', value: '4:5' },
-  { label: '16:9 宽屏', value: '16:9' },
-  { label: '9:16 竖屏', value: '9:16' },
-  { label: '2:1 超宽', value: '2:1' },
-  { label: '1:2 超高', value: '1:2' },
-  { label: '21:9 电影', value: '21:9' },
-  { label: '9:21 手机竖屏', value: '9:21' },
-]
+// 与工作台 API Mart 面板一致的比例选项（label 走 i18n，随语言切换）
+const SIZE_VALUES = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '21:9', '9:21']
+const sizeOptions = computed(() =>
+  SIZE_VALUES.map(v => ({ value: v, label: t(`chat.input.sizes.${v}`) })),
+)
 
 // 4K 仅支持宽屏比例（API Mart 的限制；OpenAI 系映射为 quality 无此限制）
 const WIDESCREEN_SIZES = new Set(['16:9', '9:16', '2:1', '1:2', '21:9', '9:21'])
@@ -223,7 +213,7 @@ function handleModelChange(key: string) {
 
 function uploadImageFile(file: File) {
   chatStore.addPendingUpload(file).catch((e) => {
-    message.error(e.response?.data?.error || e.message || '上传失败')
+    message.error(e.response?.data?.error || e.message || t('errors.uploadFailed'))
   })
 }
 
@@ -241,7 +231,7 @@ function handlePaste(e: ClipboardEvent) {
   const images = allFiles.filter(f => PASTE_IMAGE_TYPES.has(f.type))
   if (images.length === 0) {
     if (allFiles.some(f => f.type.startsWith('image/'))) {
-      message.error('仅支持粘贴 png/jpg/webp/gif 图片')
+      message.error(t('chat.input.unsupportedPaste'))
     }
     return
   }

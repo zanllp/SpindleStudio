@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { randomBytes } from 'crypto'
 import { extractErrorMessage } from '../lib/error'
+import { withRetry } from '../lib/retry'
 import type {
   GenerateSubmitInput,
   GenerationTask,
@@ -66,8 +67,13 @@ async function execute(
     const referenceImages = runtimeInput?.image_urls || []
     let data: any
     if (referenceImages.length && provider.id === 'openai') {
-      // OpenAI official image editing goes through the multipart /images/edits endpoint
-      data = await callEditsEndpoint(task, provider, referenceImages)
+      // OpenAI official image editing goes through the multipart /images/edits
+      // endpoint. callEditsEndpoint rebuilds the FormData on every attempt so
+      // retries never reuse a consumed stream.
+      data = await withRetry(
+        () => callEditsEndpoint(task, provider, referenceImages),
+        `openai edits [${provider.id}/${task.modelId}]`,
+      )
     } else {
       const payload: Record<string, any> = {
         model: task.modelId,
@@ -79,13 +85,16 @@ async function execute(
       }
       // OpenRouter / OpenAI-compatible providers accept reference images inline
       if (referenceImages.length) payload.image = referenceImages
-      const response = await axios.post(`${provider.baseUrl}/images/generations`, payload, {
-        headers: {
-          'Authorization': `Bearer ${provider.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 600000,
-      })
+      const response = await withRetry(
+        () => axios.post(`${provider.baseUrl}/images/generations`, payload, {
+          headers: {
+            'Authorization': `Bearer ${provider.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 600000,
+        }),
+        `openai submit [${provider.id}/${task.modelId}]`,
+      )
       data = response.data
     }
     if (data?.error) {
@@ -96,7 +105,7 @@ async function execute(
       if (item.b64_json) sources.push({ base64: item.b64_json })
       else if (item.url) sources.push({ url: item.url })
     }
-    if (!sources.length) return { status: 'failed', error: '上游响应中没有图片' }
+    if (!sources.length) return { status: 'failed', error: 'No image in response' }
     return { status: 'completed', sources }
   } catch (error: any) {
     return { status: 'failed', error: extractErrorMessage(error) }

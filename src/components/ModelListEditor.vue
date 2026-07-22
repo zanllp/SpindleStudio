@@ -1,13 +1,13 @@
 <template>
   <div class="model-list">
     <div v-for="(row, i) in rows" :key="i" class="model-row">
-      <a-input v-model:value="row.id" class="model-id" placeholder="模型 ID，如 gpt-image-2" @blur="emitUpdate" />
-      <a-input v-model:value="row.label" class="model-label" placeholder="显示名（可选）" @blur="emitUpdate" />
-      <DeleteOutlined class="model-delete" title="删除" @click="remove(i)" />
+      <a-input v-model:value="row.id" class="model-id" :placeholder="$t('settings.providers.model.idPlaceholder')" @blur="emitUpdate" />
+      <a-input v-model:value="row.label" class="model-label" :placeholder="$t('settings.providers.model.labelPlaceholder')" @blur="emitUpdate" />
+      <DeleteOutlined class="model-delete" :title="$t('common.delete')" @click="remove(i)" />
     </div>
     <button class="add-model-btn" @click="add">
       <PlusOutlined />
-      <span>添加模型</span>
+      <span>{{ $t('settings.providers.model.add') }}</span>
     </button>
   </div>
 </template>

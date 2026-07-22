@@ -1,9 +1,14 @@
 <template>
   <div id="app">
-    <a-config-provider :theme="themeStore.antdTheme">
+    <a-config-provider :theme="themeStore.antdTheme" :locale="antdLocale">
       <a-layout style="min-height: 100vh">
         <a-layout-header class="app-header">
           <span class="app-title">GPT Image Chat</span>
+          <span
+            v-if="chatStore.activeConversation"
+            class="active-conv-title"
+            :title="chatStore.activeConversation.title"
+          >{{ chatStore.activeConversation.title }}</span>
           <div class="header-right">
             <a-select
               :value="themeStore.themeId"
@@ -24,6 +29,7 @@
           <ChatPanel />
         </div>
 
+        <WelcomeModal />
         <SettingsView />
       </a-layout>
     </a-config-provider>
@@ -31,30 +37,53 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
 import { BgColorsOutlined } from '@ant-design/icons-vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import SettingsView from '@/components/SettingsView.vue'
+import WelcomeModal from '@/components/WelcomeModal.vue'
 import { useThemeStore, THEME_OPTIONS, type ThemeId } from '@/stores/theme'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
+import { antdLocale } from '@/i18n'
 
 const themeStore = useThemeStore()
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 
+// 多窗口：?conv=<id> 让窗口直达指定会话（缺省打开最近会话）
+function initialConversationId(): string | null {
+  const id = new URLSearchParams(window.location.search).get('conv')
+  return id && chatStore.conversationList.some(c => c.id === id) ? id : null
+}
+
+// 窗口标题跟随会话，多窗口切换（任务栏/alt-tab）时可辨
+watch(
+  () => chatStore.activeConversation?.title,
+  title => {
+    document.title = title ? `${title} - GPT Image Chat` : 'GPT Image Chat'
+  },
+  { immediate: true },
+)
+
+// 其他窗口新建/重命名/删除会话后，本窗口重新聚焦时刷新侧栏列表
+function onWindowFocus() {
+  chatStore.loadConversations()
+}
+
 onMounted(async () => {
   await settingsStore.loadConfig()
   await chatStore.loadConversations()
-  // 打开最近的对话
-  const target = chatStore.conversationList[0]
+  window.addEventListener('focus', onWindowFocus)
+  const target = initialConversationId() || chatStore.conversationList[0]?.id
   if (target) {
-    await chatStore.selectConversation(target.id)
+    await chatStore.selectConversation(target)
   }
-  // 首次使用没有可用生图供应商时直接打开设置页
-  if (!settingsStore.hasUsableProvider) {
-    settingsStore.settingsOpen = true
-  }
+  // 无可用生图供应商时由 WelcomeModal 引导初始化（见其 visible 逻辑）
+})
+
+onUnmounted(() => {
+  window.removeEventListener('focus', onWindowFocus)
 })
 </script>
 
@@ -88,6 +117,20 @@ body {
   font-size: 15px;
   font-weight: 600;
   color: var(--header-text);
+  flex-shrink: 0;
+}
+
+/* 顶栏中央：当前选中会话的标题（多窗口时每窗口显示各自选中的会话） */
+.active-conv-title {
+  flex: 1;
+  min-width: 0;
+  margin-left: 14px;
+  font-size: 14px;
+  color: var(--header-text);
+  opacity: 0.72;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-right {

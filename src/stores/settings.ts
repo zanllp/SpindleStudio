@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import api from '@/api'
+import { t } from '@/i18n'
 import type { AppConfig, ProviderConfig, ProviderModel } from '@/types'
 
 // localStorage key remembering the last selected provider/model
@@ -78,7 +79,7 @@ export const useSettingsStore = defineStore('settings', () => {
   function addCustomProvider(): ProviderConfig {
     const provider: ProviderConfig = {
       id: genCustomProviderId(),
-      name: '自定义供应商',
+      name: t('settings.providers.defaultCustomName'),
       type: 'openai-images',
       enabled: true,
       apiKey: '',

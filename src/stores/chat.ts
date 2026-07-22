@@ -10,6 +10,7 @@ import type {
 } from '@/types'
 import api from '@/api'
 import { useSettingsStore } from '@/stores/settings'
+import { t, DEFAULT_CONVERSATION_TITLES } from '@/i18n'
 
 const CHAT_IMAGE_CATEGORY = 'chat'
 
@@ -20,12 +21,12 @@ function genId(prefix: string): string {
 // fetch 本地图片 URL 并转成 base64 data URL（API Mart 无法访问 localhost，必须内联）
 async function urlToBase64DataUrl(url: string): Promise<string> {
   const resp = await fetch(url)
-  if (!resp.ok) throw new Error(`读取参考图失败: ${url}`)
+  if (!resp.ok) throw new Error(t('errors.readRefFailed', { url }))
   const blob = await resp.blob()
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('参考图转 base64 失败'))
+    reader.onerror = () => reject(new Error(t('errors.refToBase64Failed')))
     reader.readAsDataURL(blob)
   })
 }
@@ -109,7 +110,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function createNewConversation(title?: string): Promise<Conversation> {
-    const conv = await api.createConversation(title)
+    const conv = await api.createConversation(title || t('common.newConversation'))
     conversationList.value.unshift({
       id: conv.id,
       title: conv.title,
@@ -179,7 +180,7 @@ export const useChatStore = defineStore('chat', () => {
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
-      reader.onerror = () => reject(new Error('读取文件失败'))
+      reader.onerror = () => reject(new Error(t('errors.readFileFailed')))
       reader.readAsDataURL(file)
     })
     const result = await api.uploadConversationImage(activeConversation.value!.id, file.name, dataUrl)
@@ -211,7 +212,7 @@ export const useChatStore = defineStore('chat', () => {
     )]
       .slice(0, 5)
       .map(p => p.slice(0, 500))
-    if (userPrompts.length === 0) throw new Error('会话还没有用户消息，无法总结')
+    if (userPrompts.length === 0) throw new Error(t('errors.noUserMessages'))
     return api.summarizeConversationTitle(userPrompts)
   }
 
@@ -224,7 +225,7 @@ export const useChatStore = defineStore('chat', () => {
 
     const { provider, model } = settingsStore.effectiveSelection
     if (!provider || !model) {
-      message.error('请先在设置中配置并启用一个生图供应商')
+      message.error(t('errors.noProvider'))
       settingsStore.settingsOpen = true
       return
     }
@@ -276,7 +277,8 @@ export const useChatStore = defineStore('chat', () => {
       .forEach(r => api.recordUploadUsage(r.relativePath).catch(() => {}))
 
     // 首条消息自动命名（截断兜底；AI 总结为重命名弹窗里的手动操作）
-    if (conv.title === '新对话') {
+    // 默认标题按创建时的语言生成，比较时匹配所有已知语言的默认标题
+    if (DEFAULT_CONVERSATION_TITLES.includes(conv.title)) {
       conv.title = trimmed.slice(0, 20)
       const item = conversationList.value.find(c => c.id === conv.id)
       if (item) item.title = conv.title
@@ -289,7 +291,7 @@ export const useChatStore = defineStore('chat', () => {
   // 提交生成任务：每张图一个独立请求（普通渠道 n 仅支持 1，拆请求后行为一致），返回 task_id 数组
   async function submitGenerations(userMessage: ChatMessage, count: number): Promise<string[]> {
     const { provider, model } = settingsStore.effectiveSelection
-    if (!provider || !model) throw new Error('未配置生图供应商，请先在设置中填写 API Key')
+    if (!provider || !model) throw new Error(t('errors.noProviderKey'))
     // 参考图转 base64 内联（上游服务无法访问 localhost，必须内联；只需转一次，各请求共用）
     const imageUrls = await Promise.all(userMessage.referenceImages.map(r => urlToBase64DataUrl(r.url)))
     // 与工作台图生图面板一致：auto 比例 + 图生图时分辨率降级 1k
@@ -325,7 +327,7 @@ export const useChatStore = defineStore('chat', () => {
         // 连续失败说明网络/服务端异常，不再无限重试
         consecutiveErrors++
         if (consecutiveErrors >= 10) {
-          throw new Error(`轮询连续失败 ${consecutiveErrors} 次: ${e.message || '网络异常'}`)
+          throw new Error(t('errors.pollFailed', { count: consecutiveErrors, msg: e.message || t('errors.networkError') }))
         }
         await new Promise(resolve => setTimeout(resolve, pollInterval))
         continue
@@ -338,11 +340,11 @@ export const useChatStore = defineStore('chat', () => {
         return { images, metadata: pollResult.metadata }
       }
       if (pollResult.status === 'failed') {
-        throw new Error(pollResult.error || '生成任务失败')
+        throw new Error(pollResult.error || t('errors.taskFailed'))
       }
       await new Promise(resolve => setTimeout(resolve, pollInterval))
     }
-    throw new Error('生成超时')
+    throw new Error(t('errors.generationTimeout'))
   }
 
   interface GenerationResult {
@@ -363,7 +365,7 @@ export const useChatStore = defineStore('chat', () => {
         onTaskSettled(id, result, null)
         return null
       } catch (e: any) {
-        const msg = e?.message || '生成失败'
+        const msg = e?.message || t('errors.generationFailed')
         onTaskSettled(id, null, msg)
         return msg
       }
@@ -387,7 +389,7 @@ export const useChatStore = defineStore('chat', () => {
       assistantMessage.taskIds = (assistantMessage.taskIds || []).filter(id => id !== taskId)
       if (error) {
         assistantMessage.failedCount = (assistantMessage.failedCount || 0) + 1
-        assistantMessage.partialError = `${assistantMessage.failedCount}/${count} 张生成失败：${error}`
+        assistantMessage.partialError = t('errors.partialFailed', { failedCount: assistantMessage.failedCount, count, error })
       } else if (result && result.images.length > 0) {
         const generationTime = (Date.now() - startTime) / 1000
         for (const img of result.images) {
@@ -409,7 +411,7 @@ export const useChatStore = defineStore('chat', () => {
     if (assistantMessage.generatedImages.length === 0) {
       // 追加生成可能让另一组任务同时在跑：还有未了结任务时交给那组收尾
       if ((assistantMessage.taskIds || []).length > 0) return
-      throw new Error(errors[0] || '生成失败')
+      throw new Error(errors[0] || t('errors.generationFailed'))
     }
     // 同上：仍有在途任务时不定型，由最后一组统一结算状态
     if ((assistantMessage.taskIds || []).length > 0) return
@@ -418,7 +420,10 @@ export const useChatStore = defineStore('chat', () => {
     assistantMessage.taskId = undefined
     // partialError 已在回调里逐次更新；跨刷新续跑时失败原因可能丢失，这里用最终计数兜底
     if (assistantMessage.failedCount) {
-      assistantMessage.partialError = `${assistantMessage.failedCount}/${count} 张生成失败${errors[0] ? `：${errors[0]}` : ''}`
+      const failedCount = assistantMessage.failedCount
+      assistantMessage.partialError = errors[0]
+        ? t('errors.partialFailed', { failedCount, count, error: errors[0] })
+        : t('errors.partialFailedNoReason', { failedCount, count })
       assistantMessage.failedCount = undefined
     }
   }
@@ -429,7 +434,7 @@ export const useChatStore = defineStore('chat', () => {
     try {
       // 记录本次实际使用的供应商/模型（重试/再生成可能发生在切换选择之后）
       const { provider, model } = settingsStore.effectiveSelection
-      if (!provider || !model) throw new Error('未配置生图供应商，请先在设置中填写 API Key')
+      if (!provider || !model) throw new Error(t('errors.noProviderKey'))
       assistantMessage.provider = provider.id
       assistantMessage.model = model.id
       assistantMessage.taskId = undefined
@@ -446,7 +451,7 @@ export const useChatStore = defineStore('chat', () => {
       assistantMessage.status = 'error'
       assistantMessage.taskIds = undefined
       assistantMessage.taskId = undefined
-      assistantMessage.error = error.response?.data?.error || error.message || '生成失败'
+      assistantMessage.error = error.response?.data?.error || error.message || t('errors.generationFailed')
     } finally {
       persistConvDebounced(conv)
     }
@@ -467,7 +472,7 @@ export const useChatStore = defineStore('chat', () => {
       if (taskIds.length === 0 || !userMessage || userMessage.role !== 'user') {
         // 无 task_id 的老数据无法恢复，保持原行为
         msg.status = 'error'
-        msg.error = '生成被中断（页面刷新）'
+        msg.error = t('errors.generationInterrupted')
         dirty = true
         continue
       }
@@ -486,7 +491,7 @@ export const useChatStore = defineStore('chat', () => {
       assistantMessage.status = 'error'
       assistantMessage.taskIds = undefined
       assistantMessage.taskId = undefined
-      assistantMessage.error = error.response?.data?.error || error.message || '生成失败'
+      assistantMessage.error = error.response?.data?.error || error.message || t('errors.generationFailed')
     } finally {
       persistConvDebounced(conv)
     }
@@ -543,18 +548,18 @@ export const useChatStore = defineStore('chat', () => {
       persistConvDebounced(conv)
       await runGenerationTasks(conv, userMessage, assistantMessage, taskIds, false, startTime)
     } catch (error: any) {
-      const msg = error.response?.data?.error || error.message || '生成失败'
+      const msg = error.response?.data?.error || error.message || t('errors.generationFailed')
       if ((assistantMessage.taskIds || []).length > 0) {
         // 原任务仍在生成（多为提交失败）：仅回退本次追加的计数
         assistantMessage.count = Math.max((assistantMessage.count || 1) - 1, 1)
-        assistantMessage.partialError = `追加生成失败：${msg}`
+        assistantMessage.partialError = t('errors.appendFailed', { msg })
       } else if (assistantMessage.generatedImages.length > 0) {
         // 追加失败：回滚到 done，已有图片不受影响，仅提示本次失败
         assistantMessage.status = 'done'
         assistantMessage.count = assistantMessage.generatedImages.length
         assistantMessage.taskIds = undefined
         assistantMessage.taskId = undefined
-        assistantMessage.partialError = `追加生成失败：${msg}`
+        assistantMessage.partialError = t('errors.appendFailed', { msg })
       } else {
         assistantMessage.status = 'error'
         assistantMessage.taskIds = undefined

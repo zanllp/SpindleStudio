@@ -17,9 +17,9 @@
       />
       <a-popconfirm
         v-if="p.custom"
-        title="删除该供应商？"
-        ok-text="删除"
-        cancel-text="取消"
+        :title="$t('settings.providers.deleteConfirm')"
+        :ok-text="$t('common.delete')"
+        :cancel-text="$t('common.cancel')"
         @confirm="remove(p.id)"
       >
         <DeleteOutlined class="provider-delete" @click.stop />
@@ -27,7 +27,7 @@
     </div>
     <button class="add-provider-btn" @click="handleAdd">
       <PlusOutlined />
-      <span>添加自定义供应商</span>
+      <span>{{ $t('settings.providers.addCustom') }}</span>
     </button>
   </div>
 </template>
@@ -35,18 +35,20 @@
 <script setup lang="ts">
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings'
 
 defineProps<{ selectedId: string }>()
 const emit = defineEmits<{ select: [id: string] }>()
 
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 
 async function toggle(id: string, enabled: boolean) {
   try {
     await settingsStore.updateProvider(id, { enabled })
   } catch (e: any) {
-    message.error(e.response?.data?.error || e.message || '保存失败')
+    message.error(e.response?.data?.error || e.message || t('errors.saveFailed'))
   }
 }
 
@@ -54,7 +56,7 @@ async function remove(id: string) {
   try {
     await settingsStore.removeProvider(id)
   } catch (e: any) {
-    message.error(e.response?.data?.error || e.message || '删除失败')
+    message.error(e.response?.data?.error || e.message || t('errors.deleteFailed'))
   }
 }
 
@@ -63,7 +65,7 @@ async function handleAdd() {
     const provider = await settingsStore.addCustomProvider()
     emit('select', provider.id)
   } catch (e: any) {
-    message.error(e.response?.data?.error || e.message || '添加失败')
+    message.error(e.response?.data?.error || e.message || t('errors.addFailed'))
   }
 }
 </script>

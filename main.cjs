@@ -61,34 +61,11 @@ if (!gotLock) {
   })
 }
 
-// Data directory resolution, IIB-style (sd_webui_dir): a pointer OUTSIDE the
-// data dir selects where conversations/images/config live.
-// Precedence: DATA_DIR env var > data-dir.txt next to the exe (portable-friendly)
-// > data-dir.txt in userData > default (userData/data when packaged, cwd in dev).
-function resolveDataDir() {
-  if (process.env.DATA_DIR || !app.isPackaged) return
-  const fs = require('fs')
-  const candidates = [
-    path.join(path.dirname(app.getPath('exe')), 'data-dir.txt'),
-    path.join(app.getPath('userData'), 'data-dir.txt'),
-  ]
-  for (const file of candidates) {
-    try {
-      const dir = fs.readFileSync(file, 'utf-8').trim()
-      if (dir) {
-        process.env.DATA_DIR = path.resolve(dir)
-        console.log(`data dir from ${file}: ${process.env.DATA_DIR}`)
-        return
-      }
-    } catch {
-      // pointer file not present — try the next candidate
-    }
-  }
-  process.env.DATA_DIR = path.join(app.getPath('userData'), 'data')
-}
-
 async function startServer() {
-  resolveDataDir()
+  // Store user data (conversations, images, config) under the OS userData dir
+  if (app.isPackaged) {
+    process.env.DATA_DIR = path.join(app.getPath('userData'), 'data')
+  }
   // The compiled server listens as a side effect of being required
   require(path.join(__dirname, '../dist-server/index.js'))
 }

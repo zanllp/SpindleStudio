@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { i18n, t } from '@/i18n'
 import type {
   GenerateRequest,
   Conversation,
@@ -12,6 +13,12 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+// Send the current UI locale so server-side messages come back in the same language
+apiClient.interceptors.request.use(config => {
+  config.headers['Accept-Language'] = i18n.global.locale.value
+  return config
 })
 
 export const api = {
@@ -101,14 +108,8 @@ export const api = {
   // Summarize a conversation title from user messages
   async summarizeConversationTitle(userPrompts: string[], model: string = 'gpt-4o-mini'): Promise<string> {
     const dialog = userPrompts.map((p, i) => `${i + 1}. ${p}`).join('\n')
-    const metaPrompt = `请根据以下用户消息，为这段对话生成一个简短的标题。
-要求：
-- 标题不超过15个字
-- 准确概括用户想要生成的图片内容或主题
-- 只输出标题本身，不要引号、编号、结尾标点或任何解释
-
-用户消息：
-${dialog}`
+    // Prompt follows the UI locale so the generated title matches the user's language
+    const metaPrompt = t('settings.aiChat.metaPrompt', { dialog })
 
     const result = await this.aiChat(
       [{ role: 'user', content: metaPrompt }],
@@ -122,7 +123,7 @@ ${dialog}`
       .trim()
       .replace(/^["'「『“”‘’]+|["'「『“”‘’。.,，]+$/g, '')
       .trim()
-    if (!title) throw new Error('AI 未返回有效标题')
+    if (!title) throw new Error(t('errors.aiInvalidTitle'))
     return title.slice(0, 30)
   },
 }
