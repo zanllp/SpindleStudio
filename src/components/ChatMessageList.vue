@@ -164,8 +164,25 @@
           <a-descriptions-item :label="$t('chat.message.paramsLabels.model')">
             {{ paramsImage.metadata?.model || '-' }}
           </a-descriptions-item>
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.provider')">
+            {{ paramsImage.metadata?.provider || paramsImage.provider || '-' }}
+          </a-descriptions-item>
           <a-descriptions-item :label="$t('chat.message.paramsLabels.size')">
             {{ paramsImage.metadata?.size || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.aspectRatio')">
+            {{ paramsImage.metadata?.aspect_ratio || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.resolution')">
+            {{ paramsImage.metadata?.resolution || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('chat.message.paramsLabels.referenceImages')" :span="2">
+            <span v-if="!paramsImage.metadata?.custom_metadata?.reference_images?.length">-</span>
+            <div v-else style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <a-tag v-for="(ref, idx) in paramsImage.metadata.custom_metadata.reference_images" :key="idx" size="small">
+                {{ ref }}
+              </a-tag>
+            </div>
           </a-descriptions-item>
           <a-descriptions-item :label="$t('chat.message.paramsLabels.source')">
             {{ providerLabel(paramsImage.provider, paramsImage.model) }}

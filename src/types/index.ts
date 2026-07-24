@@ -3,14 +3,20 @@
 export interface ImageMetadata {
   prompt: string
   negative_prompt?: string
-  steps: number
-  sampler: string
-  cfg_scale: number
-  seed: number
-  size: string
+  provider: string
   model: string
   model_hash: string
   version: string
+  size: string // actual pixel dimensions, e.g. "1024x1536"
+  aspect_ratio: string
+  resolution: string
+  width: number
+  height: number
+  created_at: number
+  sampler: string
+  steps: number
+  cfg_scale: number
+  seed: number
   custom_metadata?: Record<string, any>
 }
 
@@ -57,6 +63,7 @@ export interface GenerateRequest {
   resolution: string
   imageCategory?: string
   image_urls?: string[]
+  referenceImagePaths?: string[] // original relative paths for img2img metadata (not sent to upstream)
 }
 
 // ==================== Chat types ====================

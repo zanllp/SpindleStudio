@@ -14,22 +14,31 @@ export interface SavedImageResult {
 
 export interface ImageGenMetadata {
   prompt: string
-  steps: number
-  sampler: string
-  cfg_scale: number
-  seed: number
-  size: string
+  provider: string
   model: string
   model_hash: string
   version: string
+  size: string // actual pixel dimensions, e.g. "1024x1536"
+  aspect_ratio: string
+  resolution: string
+  width: number
+  height: number
+  created_at: number
+  sampler: string
+  steps: number
+  cfg_scale: number
+  seed: number
   custom_metadata: Record<string, any>
 }
 
 export interface SaveImagesMeta {
   prompt: string
   model: string
-  size: string
-  resolution: string
+  providerId: string
+  size: string // aspect ratio ('auto', '1:1', ...)
+  resolution: string // '1k' | '2k' | '4k'
+  createdAt: number
+  referenceImagePaths?: string[]
 }
 
 // Resolve an accessible URL (/images/<category>/<filename>) from an absolute save path
@@ -101,22 +110,7 @@ export async function saveGeneratedImages(
   imageCategory: string,
   taskId: string,
 ): Promise<{ results: SavedImageResult[]; metadata: ImageGenMetadata }> {
-  const { prompt, model, size, resolution } = meta
-
-  // SD WebUI compatible metadata text
-  const metadataParts = [prompt]
-  const metadataParams = [
-    `Steps: 0`,
-    `Sampler: api`,
-    `CFG scale: 0`,
-    `Seed: 0`,
-    `Size: ${size}_${resolution}`,
-    `Model: ${model}`,
-    `Version: v1.0`,
-  ]
-  metadataParts.push(metadataParams.join(', '))
-  metadataParts.push(`extraJsonMetaInfo: ${JSON.stringify({ source: 'api', task_id: taskId })}`)
-  const metadataText = metadataParts.join('\n')
+  const { prompt, model, providerId, size, resolution, createdAt, referenceImagePaths } = meta
 
   let saveDir = saveDirRoot
   if (imageCategory) {
@@ -124,20 +118,9 @@ export async function saveGeneratedImages(
     await fs.mkdir(saveDir, { recursive: true })
   }
 
-  const metadata: ImageGenMetadata = {
-    prompt,
-    steps: 0,
-    sampler: 'api',
-    cfg_scale: 0,
-    seed: 0,
-    size: `${size}_${resolution}`,
-    model,
-    model_hash: '',
-    version: 'v1.0',
-    custom_metadata: { source: 'api', task_id: taskId },
-  }
-
   const results: SavedImageResult[] = []
+  let metadata: ImageGenMetadata | undefined
+
   for (let i = 0; i < sources.length; i++) {
     const src = sources[i]
     let imageBuffer: Buffer
@@ -159,8 +142,42 @@ export async function saveGeneratedImages(
     const filename = `gen_${timestamp}_${taskId.slice(-6)}_${i}.jpg`
     const filepath = path.join(saveDir, filename)
 
-    // Re-encode as JPEG (drops any original EXIF) then embed our metadata
+    // Re-encode as JPEG (drops any original EXIF)
     const jpegBuffer = await sharp(imageBuffer).jpeg({ quality: 95 }).toBuffer()
+
+    // Read actual pixel dimensions from the re-encoded JPEG
+    const { width = 0, height = 0 } = await sharp(jpegBuffer).metadata()
+    const pixelSize = width && height ? `${width}x${height}` : `${size}_${resolution}`
+    const isImg2Img = !!referenceImagePaths && referenceImagePaths.length > 0
+
+    // Build extra JSON metadata for fields that don't fit the simple key:value format
+    // or are meant to be machine-readable (arrays, long numeric IDs, timestamps).
+    const extraJsonMetaInfo: Record<string, any> = {
+      task_id: taskId,
+      created_at: createdAt,
+      reference_images: referenceImagePaths || [],
+    }
+
+    // SD WebUI compatible metadata text.
+    // Keep the last parameter line with >=3 key:value pairs so IIB parses it correctly.
+    const metadataParams = [
+      `Steps: 0`,
+      `Sampler: api`,
+      `Model: ${model}`,
+      `Size: ${pixelSize}`,
+      `Provider: ${providerId}`,
+      `Quality: ${resolution}`,
+      ...(isImg2Img ? [`Img2img: true`] : []),
+      `Version: v1.0`,
+      `Source Identifier: GPT Image Chat`,
+    ]
+    const metadataText = [
+      prompt,
+      metadataParams.join(', '),
+      `extraJsonMetaInfo: ${JSON.stringify(extraJsonMetaInfo)}`,
+    ].join('\n')
+
+    // Embed EXIF metadata
     const exifApp1 = buildExifApp1(metadataText)
     const finalBuffer = Buffer.concat([jpegBuffer.slice(0, 2), exifApp1, jpegBuffer.slice(2)])
 
@@ -172,6 +189,33 @@ export async function saveGeneratedImages(
       filename,
       saved_path: filepath,
     })
+
+    // Metadata is the same for all images in one task; compute once from the first image
+    if (!metadata) {
+      metadata = {
+        prompt,
+        provider: providerId,
+        model,
+        model_hash: '',
+        version: 'v1.0',
+        size: pixelSize,
+        aspect_ratio: size,
+        resolution,
+        width,
+        height,
+        created_at: createdAt,
+        sampler: 'gpt-image-2',
+        steps: 0,
+        cfg_scale: 0,
+        seed: 0,
+        custom_metadata: extraJsonMetaInfo,
+      }
+    }
   }
+
+  if (!metadata) {
+    throw new Error('No images were saved')
+  }
+
   return { results, metadata }
 }

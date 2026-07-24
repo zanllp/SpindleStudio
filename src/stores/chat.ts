@@ -161,6 +161,16 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // 其他窗口/标签页修改了当前正在查看的会话 → 从磁盘重新加载
+  async function maybeReloadConversation(id: string) {
+    if (activeConversationId.value !== id) return
+    if (dirtyConvIds.has(id)) return // 本窗口有未落盘的修改，优先保留
+    const conv = await api.getConversation(id)
+    dirtyConvIds.delete(id)
+    activeConversation.value = conv
+    resumePendingGenerations(activeConversation.value!)
+  }
+
   // ==================== 参考图 ====================
 
   function addPendingReference(image: { url: string; filename: string }) {
@@ -294,6 +304,7 @@ export const useChatStore = defineStore('chat', () => {
     if (!provider || !model) throw new Error(t('errors.noProviderKey'))
     // 参考图转 base64 内联（上游服务无法访问 localhost，必须内联；只需转一次，各请求共用）
     const imageUrls = await Promise.all(userMessage.referenceImages.map(r => urlToBase64DataUrl(r.url)))
+    const referenceImagePaths = userMessage.referenceImages.map(r => r.relativePath || r.url)
     // 与工作台图生图面板一致：auto 比例 + 图生图时分辨率降级 1k
     const finalResolution = imageUrls.length > 0 && chatSize.value === 'auto' ? '1k' : chatResolution.value
     const submitOne = () =>
@@ -305,7 +316,7 @@ export const useChatStore = defineStore('chat', () => {
         size: chatSize.value,
         resolution: finalResolution,
         imageCategory: CHAT_IMAGE_CATEGORY,
-        ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
+        ...(imageUrls.length > 0 ? { image_urls: imageUrls, referenceImagePaths } : {}),
       }).then(r => r.task_id)
     return Promise.all(Array.from({ length: count }, submitOne))
   }
@@ -634,5 +645,6 @@ export const useChatStore = defineStore('chat', () => {
     deleteMessage,
     editAndResend,
     generateOneMore,
+    maybeReloadConversation,
   }
 })

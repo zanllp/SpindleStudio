@@ -133,6 +133,30 @@ function createWindow() {
     return { action: 'deny' }
   })
 
+  // Right-click context menu for the renderer: standard editing actions
+  // and dev-tools access. The app chrome menu is hidden by default
+  // (autoHideMenuBar), so this is the user's primary right-click surface.
+  win.webContents.on('context-menu', (_event, params) => {
+    const isZh = app.getLocale().toLowerCase().startsWith('zh')
+    const template = [
+      { role: 'copy', label: isZh ? '复制' : 'Copy' },
+      { role: 'cut', label: isZh ? '剪切' : 'Cut' },
+      { role: 'paste', label: isZh ? '粘贴' : 'Paste' },
+      { role: 'selectAll', label: isZh ? '全选' : 'Select All' },
+      { type: 'separator' },
+      { role: 'toggleDevTools', label: isZh ? '开发者工具' : 'Inspect' },
+    ]
+    // Disable cut/copy when nothing is selected, paste when clipboard is empty
+    if (!params.editFlags.canCopy) {
+      template[0].enabled = false
+      template[1].enabled = false
+    }
+    if (!params.editFlags.canPaste) template[2].enabled = false
+    if (!params.editFlags.canSelectAll) template[3].enabled = false
+
+    Menu.buildFromTemplate(template).popup(win)
+  })
+
   win.loadURL(BASE_URL)
 }
 

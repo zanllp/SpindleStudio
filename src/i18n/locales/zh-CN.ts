@@ -87,7 +87,11 @@ const messages = {
       paramsLabels: {
         prompt: 'Prompt',
         model: 'Model',
-        size: 'Size',
+        size: 'Dimensions',
+        aspectRatio: 'Aspect ratio',
+        resolution: 'Resolution',
+        provider: 'Provider',
+        referenceImages: 'Reference images',
         source: '来源',
         duration: '耗时',
         filename: '文件名',

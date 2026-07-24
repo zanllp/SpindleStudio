@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import { BgColorsOutlined, GlobalOutlined } from '@ant-design/icons-vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import SettingsView from '@/components/SettingsView.vue'
@@ -49,6 +49,7 @@ import { useThemeStore, THEME_OPTIONS, type ThemeId } from '@/stores/theme'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import { antdLocale } from '@/i18n'
+import { onSync } from '@/lib/sync'
 
 const themeStore = useThemeStore()
 const chatStore = useChatStore()
@@ -78,24 +79,31 @@ watch(
   { immediate: true },
 )
 
-// 其他窗口新建/重命名/删除会话后，本窗口重新聚焦时刷新侧栏列表
-function onWindowFocus() {
-  chatStore.loadConversations()
-}
+// URL 跟随当前选中会话：切换侧栏时 replaceState 更新 ?conv=，刷新/复制链接能还原
+watch(
+  () => chatStore.activeConversationId,
+  id => {
+    const url = id
+      ? `${window.location.pathname}?conv=${id}`
+      : window.location.pathname
+    window.history.replaceState(null, '', url)
+  },
+)
+
+// 跨窗口/标签页实时同步：BroadcastChannel 推送 → 刷新侧栏或重新加载当前会话
+onSync({
+  onConversationsChanged: () => chatStore.loadConversations(),
+  onConversationUpdated: (id) => chatStore.maybeReloadConversation(id),
+})
 
 onMounted(async () => {
   await settingsStore.loadConfig()
   await chatStore.loadConversations()
-  window.addEventListener('focus', onWindowFocus)
   const target = initialConversationId() || chatStore.conversationList[0]?.id
   if (target) {
     await chatStore.selectConversation(target)
   }
   // 无可用生图供应商时由 WelcomeModal 引导初始化（见其 visible 逻辑）
-})
-
-onUnmounted(() => {
-  window.removeEventListener('focus', onWindowFocus)
 })
 </script>
 

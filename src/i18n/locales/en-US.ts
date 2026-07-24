@@ -87,7 +87,11 @@ const messages: MessageSchema = {
       paramsLabels: {
         prompt: 'Prompt',
         model: 'Model',
-        size: 'Size',
+        size: 'Dimensions',
+        aspectRatio: 'Aspect ratio',
+        resolution: 'Resolution',
+        provider: 'Provider',
+        referenceImages: 'Reference images',
         source: 'Source',
         duration: 'Duration',
         filename: 'Filename',

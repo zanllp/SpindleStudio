@@ -1,4 +1,6 @@
 import express from 'express'
+import { createServer } from 'http'
+import { Server } from 'socket.io'
 import axios from 'axios'
 import { promises as fs } from 'fs'
 import path from 'path'
@@ -27,7 +29,20 @@ dotenv.config({ path: path.join(process.cwd(), '.env'), override: true })
 dotenv.config({ path: path.join(process.cwd(), '.env.local'), override: true })
 
 const app = express()
+const httpServer = createServer(app)
+const io = new Server(httpServer, {
+  cors: { origin: true }, // any localhost port (dev 5173 / prod 3210)
+  serveClient: false,    // we bundle the client lib ourselves
+})
 const PORT = Number(process.env.PORT) || 3210
+
+// socket.io connection logging for debugging cross-window/tab sync
+io.on('connection', (socket) => {
+  console.log(`[socket.io] client connected: ${socket.id}`)
+  socket.on('disconnect', (reason) => {
+    console.log(`[socket.io] client disconnected: ${socket.id} (${reason})`)
+  })
+})
 
 // Root directory for all user data (conversations, images, uploads, config).
 // Electron sets DATA_DIR to the app userData folder when packaged.
@@ -117,6 +132,7 @@ app.post('/api/generate/submit', async (req, res) => {
       resolution: String(req.body?.resolution || '1k'),
       imageCategory: req.body?.imageCategory,
       image_urls: Array.isArray(req.body?.image_urls) ? req.body.image_urls : undefined,
+      referenceImagePaths: Array.isArray(req.body?.referenceImagePaths) ? req.body.referenceImagePaths : undefined,
     }
     const provider = getConfig().providers.find(p => p.id === input.providerId)
     if (!provider) return res.status(400).json({ error: t(req, 'unknownProvider') })
@@ -139,6 +155,7 @@ app.post('/api/generate/submit', async (req, res) => {
       resolution: input.resolution,
       imageCategory: input.imageCategory,
       extra: model.extra,
+      referenceImagePaths: input.referenceImagePaths,
       createdAt: now,
       updatedAt: now,
     }
@@ -209,7 +226,15 @@ app.get('/api/generate/task/:taskId', async (req, res) => {
     const { results, metadata } = await saveGeneratedImages(
       SAVE_DIR,
       outcome.sources || [],
-      { prompt: task.prompt, model: task.modelId, size: task.size, resolution: task.resolution },
+      {
+        prompt: task.prompt,
+        model: task.modelId,
+        size: task.size,
+        resolution: task.resolution,
+        providerId: task.providerId,
+        createdAt: task.createdAt,
+        referenceImagePaths: task.referenceImagePaths,
+      },
       task.imageCategory || '',
       taskId,
     )
@@ -324,6 +349,8 @@ app.post('/api/conversations', async (req, res) => {
       messages: [],
     }
     await fs.writeFile(path.join(CONVERSATIONS_DIR, `${id}.json`), JSON.stringify(conversation, null, 2))
+    io.emit('conversations-changed')
+    console.log(`[socket.io] emit conversations-changed (created: ${id})`)
     res.json(conversation)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -353,6 +380,8 @@ app.put('/api/conversations/:id', async (req, res) => {
       return res.status(400).json({ error: t(req, 'conversationMismatch') })
     }
     await fs.writeFile(filepath, JSON.stringify(data, null, 2))
+    io.emit('conversation-updated', { convId: req.params.id })
+    console.log(`[socket.io] emit conversation-updated: ${req.params.id}`)
     res.json({ success: true })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -391,6 +420,8 @@ app.delete('/api/conversations/:id', async (req, res) => {
       }
     }
     if (mutated) await writeUploadStats(stats)
+    io.emit('conversations-changed')
+    console.log(`[socket.io] emit conversations-changed (deleted: ${req.params.id})`)
     res.json({ success: true })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -506,7 +537,7 @@ app.get('*', (req, res, next) => {
   await fs.mkdir(CONVERSATIONS_DIR, { recursive: true })
   await fs.mkdir(UPLOADS_DIR, { recursive: true })
   await Promise.all([initConfig(DATA_DIR), initTasks(DATA_DIR)])
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`GPT Image Chat server: http://localhost:${PORT}`)
     console.log(`Data directory: ${DATA_DIR}`)
     const ready = getConfig().providers.filter(p => p.enabled && p.apiKey).map(p => p.name)

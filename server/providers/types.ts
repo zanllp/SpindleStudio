@@ -33,6 +33,7 @@ export interface GenerateSubmitInput {
   resolution: string // '1k' | '2k' | '4k' — mapped per provider
   imageCategory?: string
   image_urls?: string[] // base64 data URLs (reference images)
+  referenceImagePaths?: string[] // original relative paths for metadata only
 }
 
 // A task as persisted in tasks.json (reference image payloads are NOT persisted)
@@ -46,6 +47,7 @@ export interface GenerationTask {
   resolution: string
   imageCategory?: string
   extra?: Record<string, any>
+  referenceImagePaths?: string[] // original relative paths for metadata only
   createdAt: number
   updatedAt: number
   // Cached response once finished — repeated polls return this as-is
