@@ -148,7 +148,7 @@ const messages = {
     },
   },
   welcome: {
-    title: '欢迎使用 GPT Image Chat',
+    title: '欢迎使用 ChatImgHub',
     desc: '请选择供应商并填入 API Key 以开始生图。你稍后也可以在左下角 设置 中修改或添加更多供应商。',
     provider: '供应商',
     apiKey: 'API Key',

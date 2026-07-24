@@ -11,7 +11,7 @@
 //
 // Usage:
 //   node scripts/migrate-data.mjs <sourceDir> [destDir]
-//   node scripts/migrate-data.mjs ../Z-Image-Turbo/client
+//   node scripts/migrate-data.mjs ../old-gpt-image-chat/data
 //
 // destDir defaults to the repo root (development data dir).
 

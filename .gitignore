@@ -8,3 +8,7 @@ data/
 *.log
 
 HANDOVER.md
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -148,7 +148,7 @@ User messages:
     },
   },
   welcome: {
-    title: 'Welcome to GPT Image Chat',
+    title: 'Welcome to ChatImgHub',
     desc: 'Choose a provider and fill in your API Key to start generating. You can also add or modify providers later via the Settings gear at the bottom left.',
     provider: 'Provider',
     apiKey: 'API Key',

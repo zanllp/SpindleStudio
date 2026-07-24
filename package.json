@@ -1,10 +1,32 @@
 {
-  "name": "gpt-image-chat",
+  "name": "chatimghub",
   "version": "1.0.0",
-  "description": "A ChatGPT-style desktop app for AI image generation (gpt-image-2)",
+  "description": "A chat-style desktop app for multi-provider AI image generation",
   "main": "electron/main.cjs",
   "author": "zanllp",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zanllp/ChatImgHub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zanllp/ChatImgHub/issues"
+  },
+  "homepage": "https://github.com/zanllp/ChatImgHub#readme",
+  "keywords": [
+    "ai-image-generation",
+    "multi-provider",
+    "chat-interface",
+    "electron",
+    "text-to-image",
+    "image-to-image",
+    "gpt-image-2",
+    "stable-diffusion-webui",
+    "iib"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "concurrently -k \"vite\" \"tsx watch server/index.ts\"",
     "dev:electron": "concurrently -k \"vite\" \"tsx watch server/index.ts\" \"wait-on tcp:5173 tcp:3210 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
@@ -47,8 +69,8 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.zanllp.gpt-image-chat",
-    "productName": "GPT Image Chat",
+    "appId": "com.zanllp.chatimghub",
+    "productName": "ChatImgHub",
     "directories": {
       "output": "release"
     },

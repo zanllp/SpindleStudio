@@ -538,7 +538,7 @@ app.get('*', (req, res, next) => {
   await fs.mkdir(UPLOADS_DIR, { recursive: true })
   await Promise.all([initConfig(DATA_DIR), initTasks(DATA_DIR)])
   httpServer.listen(PORT, () => {
-    console.log(`GPT Image Chat server: http://localhost:${PORT}`)
+    console.log(`ChatImgHub server: http://localhost:${PORT}`)
     console.log(`Data directory: ${DATA_DIR}`)
     const ready = getConfig().providers.filter(p => p.enabled && p.apiKey).map(p => p.name)
     console.log(`Image providers: ${ready.length ? ready.join(', ') : 'NOT configured (open Settings in the app)'}`)

@@ -1,4 +1,4 @@
-# GPT Image Chat
+# ChatImgHub
 
 一个 ChatGPT 风格的桌面聊天应用，用对话的方式生成图片（文生图 / 图生图）。
 
@@ -61,7 +61,7 @@ npm start            # http://localhost:3210
 打包版可以把数据目录指向任意已有目录（类似 IIB 的 `sd_webui_dir`），优先级：`DATA_DIR` 环境变量 > exe 同目录 `data-dir.txt` > userData 下 `data-dir.txt` > 默认。文件内容就是一行绝对路径，例如：
 
 ```
-C:\Users\me\repo\gpt-image-chat
+C:\Users\me\repo\ChatImgHub
 ```
 
 指向本仓库目录后，打包版与开发模式共用同一份会话 / 图片 / 配置。纯 Node 运行（`npm start`）用 `DATA_DIR` 环境变量即可。如需一次性导入而不是共享，用 `npm run migrate -- <源目录> [目标目录]`（幂等增量复制会话与图片）。

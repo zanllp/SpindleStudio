@@ -3,7 +3,7 @@
     <a-config-provider :theme="themeStore.antdTheme" :locale="antdLocale">
       <a-layout style="min-height: 100vh">
         <a-layout-header class="app-header">
-          <span class="app-title">GPT Image Chat</span>
+          <span class="app-title">ChatImgHub</span>
           <span
             v-if="chatStore.activeConversation"
             class="active-conv-title"
@@ -74,7 +74,7 @@ function openInBrowser() {
 watch(
   () => chatStore.activeConversation?.title,
   title => {
-    document.title = title ? `${title} - GPT Image Chat` : 'GPT Image Chat'
+    document.title = title ? `${title} - ChatImgHub` : 'ChatImgHub'
   },
   { immediate: true },
 )

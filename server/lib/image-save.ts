@@ -169,7 +169,7 @@ export async function saveGeneratedImages(
       `Quality: ${resolution}`,
       ...(isImg2Img ? [`Img2img: true`] : []),
       `Version: v1.0`,
-      `Source Identifier: GPT Image Chat`,
+      `Source Identifier: ChatImgHub`,
     ]
     const metadataText = [
       prompt,
