@@ -22,6 +22,13 @@ const ANTD_THEMES: Record<ThemeId, ThemeConfig> = {
       colorInfo: '#0d0d0d',
       colorLink: '#0d0d0d',
     },
+    components: {
+      Select: {
+        colorBgElevated: '#ffffff',
+        controlItemBgActive: 'rgba(0, 0, 0, 0.06)',
+        controlItemBgHover: 'rgba(0, 0, 0, 0.04)',
+      },
+    },
   },
   // Frutiger Aero：aero 蓝主色 + 大圆角 + 半透明白 Segmented 轨道
   // （antd-vue 4.2 的 Segmented 无专属 token，用别名 token colorBgLayout/colorBgElevated/colorTextLabel 调）
@@ -43,6 +50,12 @@ const ANTD_THEMES: Record<ThemeId, ThemeConfig> = {
       Popover: {
         colorBgElevated: 'rgba(255, 255, 255, 0.88)',
       },
+      // antd Select 下拉默认无 token，玻璃主题下文字和背景都是灰色，补高不透明底
+      Select: {
+        colorBgElevated: 'rgba(255, 255, 255, 0.98)',
+        controlItemBgActive: 'rgba(44, 138, 202, 0.14)',
+        controlItemBgHover: 'rgba(0, 0, 0, 0.04)',
+      },
       // Modal 无配色 token，但 modalContentBg 派生自 alias token colorBgElevated，组件级覆盖即可
       Modal: {
         colorBgElevated: 'rgba(255, 255, 255, 0.92)',
@@ -62,6 +75,11 @@ const ANTD_THEMES: Record<ThemeId, ThemeConfig> = {
         colorBgLayout: 'rgba(255, 255, 255, 0.16)',
         colorBgElevated: 'rgba(110, 170, 220, 0.45)',
         colorTextLabel: '#d5e2ee',
+      },
+      Select: {
+        colorBgElevated: 'rgba(255, 255, 255, 0.97)',
+        controlItemBgActive: 'rgba(31, 111, 178, 0.14)',
+        controlItemBgHover: 'rgba(0, 0, 0, 0.04)',
       },
       Popover: {
         colorBgElevated: 'rgba(244, 248, 252, 0.94)',
@@ -84,6 +102,11 @@ const ANTD_THEMES: Record<ThemeId, ThemeConfig> = {
         colorBgLayout: 'rgba(255, 255, 255, 0.2)',
         colorBgElevated: 'rgba(255, 255, 255, 0.4)',
         colorTextLabel: '#ffffff',
+      },
+      Select: {
+        colorBgElevated: 'rgba(255, 255, 255, 0.98)',
+        controlItemBgActive: 'rgba(49, 106, 197, 0.14)',
+        controlItemBgHover: 'rgba(0, 0, 0, 0.04)',
       },
       Popover: {
         colorBgElevated: 'rgba(255, 255, 255, 0.96)',

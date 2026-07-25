@@ -119,6 +119,7 @@ const messages = {
       typeLabels: {
         'apimart-task': '异步任务模式',
         'openai-images': 'OpenAI 兼容',
+        'openrouter-images': 'OpenRouter 图像 API',
       },
       form: {
         name: '名称',
@@ -130,6 +131,7 @@ const messages = {
         idPlaceholder: '模型 ID，如 gpt-image-2',
         labelPlaceholder: '显示名（可选）',
         add: '添加模型',
+        enabled: '启用后可在生图时选择',
       },
     },
     aiChat: {

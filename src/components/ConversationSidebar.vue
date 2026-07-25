@@ -5,38 +5,40 @@
       <span>{{ $t('common.newConversation') }}</span>
     </button>
 
-    <a-spin :spinning="chatStore.isLoadingList" style="width: 100%;">
-      <div v-if="chatStore.conversationList.length === 0" class="empty-tip">
-        {{ $t('sidebar.empty') }}
-      </div>
-      <div
-        v-for="conv in chatStore.conversationList"
-        :key="conv.id"
-        class="conversation-item"
-        :class="{ active: conv.id === chatStore.activeConversationId }"
-        @click="chatStore.selectConversation(conv.id)"
-      >
-        <span class="conversation-title" :title="conv.title">{{ conv.title }}</span>
-        <span class="conversation-actions" @click.stop>
-          <a-tooltip :title="$t('sidebar.openInNewWindow')">
-            <ExportOutlined class="action-icon" @click="openInNewWindow(conv.id)" />
-          </a-tooltip>
-          <a-tooltip :title="$t('sidebar.rename')">
-            <EditOutlined class="action-icon" @click="openRename(conv)" />
-          </a-tooltip>
-          <a-popconfirm
-            :title="$t('sidebar.deleteConfirm')"
-            :ok-text="$t('common.delete')"
-            :cancel-text="$t('common.cancel')"
-            @confirm="chatStore.deleteConversation(conv.id)"
-          >
-            <a-tooltip :title="$t('common.delete')">
-              <DeleteOutlined class="action-icon delete-icon" />
+    <div class="list-scroll">
+      <a-spin :spinning="chatStore.isLoadingList" style="width: 100%;">
+        <div v-if="chatStore.conversationList.length === 0" class="empty-tip">
+          {{ $t('sidebar.empty') }}
+        </div>
+        <div
+          v-for="conv in chatStore.conversationList"
+          :key="conv.id"
+          class="conversation-item"
+          :class="{ active: conv.id === chatStore.activeConversationId }"
+          @click="chatStore.selectConversation(conv.id)"
+        >
+          <span class="conversation-title" :title="conv.title">{{ conv.title }}</span>
+          <span class="conversation-actions" @click.stop>
+            <a-tooltip :title="$t('sidebar.openInNewWindow')">
+              <ExportOutlined class="action-icon" @click="openInNewWindow(conv.id)" />
             </a-tooltip>
-          </a-popconfirm>
-        </span>
-      </div>
-    </a-spin>
+            <a-tooltip :title="$t('sidebar.rename')">
+              <EditOutlined class="action-icon" @click="openRename(conv)" />
+            </a-tooltip>
+            <a-popconfirm
+              :title="$t('sidebar.deleteConfirm')"
+              :ok-text="$t('common.delete')"
+              :cancel-text="$t('common.cancel')"
+              @confirm="chatStore.deleteConversation(conv.id)"
+            >
+              <a-tooltip :title="$t('common.delete')">
+                <DeleteOutlined class="action-icon delete-icon" />
+              </a-tooltip>
+            </a-popconfirm>
+          </span>
+        </div>
+      </a-spin>
+    </div>
 
     <div class="sidebar-footer">
       <button class="settings-entry" @click="openNewWindow">
@@ -134,14 +136,19 @@ async function handleAiSummarize() {
   flex-direction: column;
   height: 100%;
   padding: 10px;
-  overflow-y: auto;
   /* 背景与模糊由外层 .chat-sider 统一绘制，内层保持透明 */
   background: transparent;
 }
 
-/* 底部设置入口（Cherry Studio 风格左下角齿轮） */
+/* 仅会话列表滚动：头部「新对话」和底部「新建窗口/设置」固定不随列表滚动 */
+.list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 底部设置入口（Cherry Studio 风格左下角齿轮），固定在侧栏底部 */
 .sidebar-footer {
-  margin-top: auto;
   flex-shrink: 0;
   padding-top: 8px;
   border-top: 1px solid var(--sider-border);

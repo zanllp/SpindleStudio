@@ -22,11 +22,24 @@ export interface ImageMetadata {
 
 // ==================== Provider config ====================
 
-export type ProviderType = 'apimart-task' | 'openai-images'
+// Mirrors the server union; runtime registration lives in server/providers/registry.ts
+export type ProviderType = 'apimart-task' | 'openai-images' | 'openrouter-images'
+
+// UI-facing capability hints, code-derived per provider type and merged into
+// each provider by GET /api/config (never persisted to config.json)
+export interface ProviderUiHints {
+  // 4K resolution is only offered for widescreen aspect ratios
+  widescreenOnly4k?: boolean
+  // With reference images + auto aspect ratio, force this resolution
+  i2iAutoResolution?: string
+}
 
 export interface ProviderModel {
   id: string // model id sent to the upstream API
   label: string // display name in the UI
+  // Preset models can be shipped disabled — the user opts in from Settings.
+  // Absent means enabled (backward compatible with older configs).
+  enabled?: boolean
   // Extra fields merged into the upstream payload (e.g. { official_fallback: true })
   extra?: Record<string, any>
 }
@@ -40,6 +53,7 @@ export interface ProviderConfig {
   baseUrl: string
   models: ProviderModel[]
   custom?: boolean // user-added providers can be renamed/deleted
+  uiHints?: ProviderUiHints // code-derived, merged by GET /api/config
 }
 
 export interface AiChatConfig {

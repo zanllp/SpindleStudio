@@ -119,6 +119,7 @@ const messages: MessageSchema = {
       typeLabels: {
         'apimart-task': 'Async task mode',
         'openai-images': 'OpenAI compatible',
+        'openrouter-images': 'OpenRouter Image API',
       },
       form: {
         name: 'Name',
@@ -130,6 +131,7 @@ const messages: MessageSchema = {
         idPlaceholder: 'Model ID, e.g. gpt-image-2',
         labelPlaceholder: 'Display name (optional)',
         add: 'Add model',
+        enabled: 'Enable to make selectable for generation',
       },
     },
     aiChat: {

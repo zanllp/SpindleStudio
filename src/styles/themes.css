@@ -416,11 +416,13 @@ html[data-theme='xp'] {
    全局应用：页面画布、布局透明化、滚动条、选区
    ========================================================================== */
 
-/* 页面背景画在 html 画布上：不随滚动移动，且铺满视口；壁纸图层 cover 居中 */
+/* 页面背景画在 html 画布上：固定不随滚动，壁纸 cover 居中，禁平铺 */
 html {
   background: var(--page-bg);
+  background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
+  background-attachment: fixed;
 }
 
 body {
@@ -512,6 +514,12 @@ html[data-theme='vista'] .ant-popover .ant-popover-arrow::before {
 
 html[data-theme='xp'] .ant-popover .ant-popover-arrow::before {
   background: rgba(255, 255, 255, 0.96);
+}
+
+/* 模型选择器下拉：长模型名（如 gemini-3.1-flash-image-preview）不截断 */
+.model-select-dropdown.ant-select-dropdown {
+  min-width: 240px;
+  max-width: 380px;
 }
 
 /* antd 默认按钮（确认框取消、错误块重试等）：玻璃主题下换成主题色描边样式。

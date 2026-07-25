@@ -2,7 +2,7 @@
   <div v-if="provider" class="provider-form">
     <div class="form-header">
       <span class="form-title">{{ provider.name }}</span>
-      <span class="form-type">{{ $t(`settings.providers.typeLabels.${provider.type}`) }}</span>
+      <span class="form-type">{{ typeLabel }}</span>
     </div>
 
     <div v-if="provider.custom" class="form-item">
@@ -34,8 +34,15 @@ import ModelListEditor from './ModelListEditor.vue'
 const props = defineProps<{ providerId: string }>()
 
 const settingsStore = useSettingsStore()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const provider = computed(() => settingsStore.getProvider(props.providerId))
+
+// i18n label with raw-type fallback — a newly registered adapter type without a
+// locale entry shows the type string instead of a broken key
+const typeLabel = computed(() => {
+  const key = `settings.providers.typeLabels.${provider.value?.type}`
+  return provider.value && te(key) ? t(key) : provider.value?.type || ''
+})
 
 // 本地草稿：输入过程不落盘，blur 时保存
 const draft = ref({ name: '', apiKey: '', baseUrl: '' })

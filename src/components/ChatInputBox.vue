@@ -103,6 +103,8 @@
               :bordered="false"
               class="model-select"
               :options="modelOptions"
+              :dropdown-match-select-width="false"
+              popup-class-name="model-select-dropdown"
               :placeholder="settingsStore.hasUsableProvider ? $t('chat.input.modelPlaceholder') : $t('chat.input.noProviderPlaceholder')"
               @change="handleModelChange"
             />
@@ -184,11 +186,12 @@ const sizeOptions = computed(() =>
   SIZE_VALUES.map(v => ({ value: v, label: t(`chat.input.sizes.${v}`) })),
 )
 
-// 4K 仅支持宽屏比例（API Mart 的限制；OpenAI 系映射为 quality 无此限制）
+// 4K 仅支持宽屏比例（由供应商类型的 uiHints 下发，当前只有 API Mart 有此限制；
+// OpenAI 系映射为 quality 无此限制）
 const WIDESCREEN_SIZES = new Set(['16:9', '9:16', '2:1', '1:2', '21:9', '9:21'])
 const isWidescreenSize = computed(() => WIDESCREEN_SIZES.has(chatStore.chatSize))
 const is4kConstrained = computed(
-  () => settingsStore.selectedProvider?.type === 'apimart-task' && !isWidescreenSize.value,
+  () => !!settingsStore.selectedProvider?.uiHints?.widescreenOnly4k && !isWidescreenSize.value,
 )
 
 // ==================== 供应商·模型选择 ====================
@@ -202,7 +205,9 @@ const selectedModelKey = computed(() => {
 const modelOptions = computed(() =>
   settingsStore.usableProviders.map(p => ({
     label: p.name,
-    options: p.models.map(m => ({ value: `${p.id}::${m.id}`, label: m.label })),
+    options: p.models
+      .filter(m => m.enabled !== false)
+      .map(m => ({ value: `${p.id}::${m.id}`, label: m.label })),
   })),
 )
 

@@ -19,24 +19,27 @@ export const useSettingsStore = defineStore('settings', () => {
   const selectedModelId = ref('')
 
   const providers = computed(() => config.value.providers)
+  // Models the user has switched on (absent flag = enabled); preset models ship disabled
+  const enabledModels = (p: ProviderConfig) => p.models.filter(m => m.enabled !== false)
   // Providers the user can actually generate with right now
   const usableProviders = computed(() =>
-    config.value.providers.filter(p => p.enabled && p.apiKey && p.models.length > 0),
+    config.value.providers.filter(p => p.enabled && p.apiKey && enabledModels(p).length > 0),
   )
   const hasUsableProvider = computed(() => usableProviders.value.length > 0)
 
   const selectedProvider = computed(() => providers.value.find(p => p.id === selectedProviderId.value))
   const selectedModel = computed(() => selectedProvider.value?.models.find(m => m.id === selectedModelId.value))
   // Effective selection: falls back to the first usable provider when the stored
-  // selection points at a disabled/deleted provider
+  // selection points at a disabled/deleted provider or model
   const effectiveSelection = computed<{ provider?: ProviderConfig; model?: ProviderModel }>(() => {
     const provider = selectedProvider.value
     if (provider && provider.enabled && provider.apiKey) {
-      const model = provider.models.find(m => m.id === selectedModelId.value) || provider.models[0]
+      const models = enabledModels(provider)
+      const model = models.find(m => m.id === selectedModelId.value) || models[0]
       if (model) return { provider, model }
     }
     const fallback = usableProviders.value[0]
-    return { provider: fallback, model: fallback?.models[0] }
+    return { provider: fallback, model: fallback ? enabledModels(fallback)[0] : undefined }
   })
 
   async function loadConfig() {
@@ -55,7 +58,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
     const first = usableProviders.value[0] || providers.value[0]
     selectedProviderId.value = first?.id || ''
-    selectedModelId.value = first?.models[0]?.id || ''
+    selectedModelId.value = (first ? enabledModels(first)[0] : undefined)?.id || ''
   }
 
   function selectModel(providerId: string, modelId: string) {

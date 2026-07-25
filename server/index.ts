@@ -13,14 +13,11 @@ import { createTask, getTask, initTasks, updateTask } from './lib/tasks'
 import { saveGeneratedImages } from './lib/image-save'
 import { extractErrorMessage } from './lib/error'
 import { t } from './lib/i18n'
-import { apimartAdapter } from './providers/apimart'
-import { openaiImagesAdapter } from './providers/openai-images'
+import { adapters, uiHintsForType } from './providers/registry'
 import type {
   GenerateSubmitInput,
   GenerationTask,
-  ProviderAdapter,
   ProviderConfig,
-  ProviderType,
 } from './providers/types'
 
 // Load environment variables. Priority (lowest to highest):
@@ -73,12 +70,6 @@ const SAVE_DIR = path.join(DATA_DIR, 'generated-images')
 const CONVERSATIONS_DIR = path.join(DATA_DIR, 'conversations')
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploaded-images')
 
-// Provider adapters keyed by provider type
-const adapters: Record<ProviderType, ProviderAdapter> = {
-  'apimart-task': apimartAdapter,
-  'openai-images': openaiImagesAdapter,
-}
-
 // Proxy support — axios does not read HTTP_PROXY/HTTPS_PROXY automatically
 const HTTPS_PROXY = process.env.HTTPS_PROXY || process.env.https_proxy || ''
 const HTTP_PROXY = process.env.HTTP_PROXY || process.env.http_proxy || ''
@@ -98,7 +89,13 @@ app.use(express.json({ limit: '50mb' }))
 // ==================== Config endpoints ====================
 
 app.get('/api/config', async (_req, res) => {
-  res.json(getConfig())
+  const cfg = getConfig()
+  // Merge code-derived UI hints per provider type (never persisted — the
+  // sanitize step on save strips unknown fields, and they are re-merged here)
+  res.json({
+    ...cfg,
+    providers: cfg.providers.map(p => ({ ...p, uiHints: uiHintsForType(p.type) })),
+  })
 })
 
 app.put('/api/config', async (req, res) => {

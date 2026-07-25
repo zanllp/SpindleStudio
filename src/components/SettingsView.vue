@@ -116,6 +116,9 @@ async function saveAiChat() {
   display: flex;
   flex-direction: column;
   background: var(--page-bg);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
   color: var(--text-primary);
 }
 

@@ -305,8 +305,10 @@ export const useChatStore = defineStore('chat', () => {
     // 参考图转 base64 内联（上游服务无法访问 localhost，必须内联；只需转一次，各请求共用）
     const imageUrls = await Promise.all(userMessage.referenceImages.map(r => urlToBase64DataUrl(r.url)))
     const referenceImagePaths = userMessage.referenceImages.map(r => r.relativePath || r.url)
-    // 与工作台图生图面板一致：auto 比例 + 图生图时分辨率降级 1k
-    const finalResolution = imageUrls.length > 0 && chatSize.value === 'auto' ? '1k' : chatResolution.value
+    // auto 比例 + 图生图时的分辨率降级由供应商 uiHints 决定（当前只有 API Mart 要求降到 1k）
+    const i2iAutoResolution =
+      imageUrls.length > 0 && chatSize.value === 'auto' ? provider.uiHints?.i2iAutoResolution : undefined
+    const finalResolution = i2iAutoResolution || chatResolution.value
     const submitOne = () =>
       api.generateSubmit({
         providerId: provider.id,

@@ -1,6 +1,13 @@
 <template>
   <div class="model-list">
-    <div v-for="(row, i) in rows" :key="i" class="model-row">
+    <div v-for="(row, i) in rows" :key="i" class="model-row" :class="{ disabled: !row.enabled }">
+      <a-switch
+        :checked="row.enabled"
+        size="small"
+        class="model-switch"
+        :title="$t('settings.providers.model.enabled')"
+        @change="toggle(i, $event as boolean)"
+      />
       <a-input v-model:value="row.id" class="model-id" :placeholder="$t('settings.providers.model.idPlaceholder')" @blur="emitUpdate" />
       <a-input v-model:value="row.label" class="model-label" :placeholder="$t('settings.providers.model.labelPlaceholder')" @blur="emitUpdate" />
       <DeleteOutlined class="model-delete" :title="$t('common.delete')" @click="remove(i)" />
@@ -23,6 +30,7 @@ const emit = defineEmits<{ 'update:models': [models: ProviderModel[]] }>()
 interface Row {
   id: string
   label: string
+  enabled: boolean
   extra?: Record<string, any>
 }
 
@@ -32,7 +40,12 @@ const rows = ref<Row[]>([])
 watch(
   () => props.models,
   models => {
-    rows.value = models.map(m => ({ id: m.id, label: m.label === m.id ? '' : m.label, extra: m.extra }))
+    rows.value = models.map(m => ({
+      id: m.id,
+      label: m.label === m.id ? '' : m.label,
+      enabled: m.enabled !== false,
+      extra: m.extra,
+    }))
   },
   { immediate: true, deep: true },
 )
@@ -43,13 +56,21 @@ function emitUpdate() {
     .map(r => ({
       id: r.id.trim(),
       label: r.label.trim() || r.id.trim(),
+      // 缺省即启用，仅显式停用时落盘
+      ...(r.enabled ? {} : { enabled: false }),
       ...(r.extra ? { extra: r.extra } : {}),
     }))
   emit('update:models', models)
 }
 
+// 开关立即生效（输入框则 blur 才保存）
+function toggle(i: number, checked: boolean) {
+  rows.value[i].enabled = checked
+  emitUpdate()
+}
+
 function add() {
-  rows.value.push({ id: '', label: '' })
+  rows.value.push({ id: '', label: '', enabled: true })
 }
 
 function remove(i: number) {
@@ -69,6 +90,15 @@ function remove(i: number) {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 停用的行整体降透明度，开关本身保持不透明以便辨认 */
+.model-row.disabled :deep(.ant-input) {
+  opacity: 0.45;
+}
+
+.model-switch {
+  flex-shrink: 0;
 }
 
 .model-id {

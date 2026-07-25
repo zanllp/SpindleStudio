@@ -181,13 +181,15 @@ body {
   height: calc(100vh - 48px);
 }
 
-/* 主题切换：无边框弱化成文本级控件，颜色跟随顶栏 */
+/* 主题切换：无边框弱化成文本级控件，颜色跟随顶栏。
+   antd-vue 4 的 CSS-in-JS 把 color 直接打在 selection-item 上，必须 !important 压过 */
 .theme-select {
   min-width: 118px;
 }
 
-.theme-select :deep(.ant-select-selection-item),
-.theme-select :deep(.ant-select-arrow) {
-  color: var(--header-text);
+.theme-select .ant-select-selection-item,
+.theme-select .ant-select-arrow,
+.theme-select .anticon {
+  color: var(--header-text) !important;
 }
 </style>

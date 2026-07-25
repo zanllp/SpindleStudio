@@ -1,13 +1,19 @@
 // Shared types for the image-generation provider abstraction.
-// Two execution modes exist:
-//   - 'apimart-task'  : async upstream — submit returns a task id, results come from polling
-//   - 'openai-images' : synchronous OpenAI-compatible API, wrapped in a local task so the
-//                       frontend can keep its uniform submit -> poll flow
-export type ProviderType = 'apimart-task' | 'openai-images'
+// Three execution modes exist:
+//   - 'apimart-task'      : async upstream — submit returns a task id, results come from polling
+//   - 'openai-images'     : synchronous OpenAI-compatible API (/images/generations)
+//   - 'openrouter-images' : OpenRouter's dedicated Image API (POST /images), sync
+// Synchronous modes are wrapped in a local task so the frontend can keep its
+// uniform submit -> poll flow.
+// Runtime registration lives in registry.ts — add new types there AND here.
+export type ProviderType = 'apimart-task' | 'openai-images' | 'openrouter-images'
 
 export interface ProviderModel {
   id: string // model id sent to the upstream API
   label: string // display name in the UI
+  // Preset models can be shipped disabled — the user opts in from Settings.
+  // Absent means enabled (backward compatible with older configs).
+  enabled?: boolean
   // Extra fields merged into the upstream payload (e.g. { official_fallback: true })
   extra?: Record<string, any>
 }

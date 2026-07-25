@@ -1,7 +1,8 @@
 import axios from 'axios'
-import { randomBytes } from 'crypto'
 import { extractErrorMessage } from '../lib/error'
 import { withRetry } from '../lib/retry'
+import { executeOpenRouter } from './openrouter-images'
+import { makeSyncAdapter } from './sync-task'
 import type {
   GenerateSubmitInput,
   GenerationTask,
@@ -9,14 +10,14 @@ import type {
   PollOutcome,
   ProviderAdapter,
   ProviderConfig,
-  ProviderModel,
 } from './types'
 
-// Synchronous OpenAI-compatible providers (OpenAI official / OpenRouter / custom
-// OpenAI-compatible endpoints). The upstream API returns the finished image in one
-// request; we wrap it in a local task so the frontend keeps its uniform
-// submit -> poll flow. The upstream request fires on the first poll — the frontend
-// waits ~15s before its first poll anyway, and generations typically take 20-60s.
+// Synchronous OpenAI-compatible providers (OpenAI official / custom
+// OpenAI-compatible endpoints). The upstream API returns the finished image in
+// one request; makeSyncAdapter wraps it in a local task so the frontend keeps
+// its uniform submit -> poll flow. The upstream request fires on the first
+// poll — the frontend waits ~15s before its first poll anyway, and generations
+// typically take 20-60s.
 
 // The UI always shows unified 1K/2K/4K options; OpenAI-style APIs take quality levels
 const RESOLUTION_TO_QUALITY: Record<string, string> = {
@@ -34,35 +35,16 @@ function mapSize(ratio: string): string {
   return w >= h ? '1536x1024' : '1024x1536'
 }
 
-// Guard against duplicate execution when the same task is polled concurrently
-// (multi-tab / resume). Reference images arrive as base64 data URLs and are not
-// persisted in tasks.json — the route layer hands them back via runtimeInput.
-const inFlight = new Map<string, Promise<PollOutcome>>()
-
-async function submit(): Promise<{ taskId: string }> {
-  return { taskId: `sync_${randomBytes(8).toString('hex')}` }
-}
-
-async function poll(
-  task: GenerationTask,
-  provider: ProviderConfig,
-  runtimeInput?: GenerateSubmitInput,
-): Promise<PollOutcome> {
-  let pending = inFlight.get(task.taskId)
-  if (!pending) {
-    pending = execute(task, provider, runtimeInput)
-    inFlight.set(task.taskId, pending)
-    const cleanup = () => inFlight.delete(task.taskId)
-    pending.then(cleanup, cleanup)
-  }
-  return pending
-}
-
 async function execute(
   task: GenerationTask,
   provider: ProviderConfig,
   runtimeInput?: GenerateSubmitInput,
 ): Promise<PollOutcome> {
+  // A custom provider pointed at OpenRouter must use the dedicated Image API
+  // (POST /images) — OpenRouter has no OpenAI-compatible /images/generations
+  if (/openrouter\.ai/.test(provider.baseUrl)) {
+    return executeOpenRouter(task, provider, runtimeInput)
+  }
   try {
     const referenceImages = runtimeInput?.image_urls || []
     let data: any
@@ -83,7 +65,7 @@ async function execute(
         quality: RESOLUTION_TO_QUALITY[task.resolution] || 'auto',
         ...task.extra,
       }
-      // OpenRouter / OpenAI-compatible providers accept reference images inline
+      // OpenAI-compatible providers accept reference images inline
       if (referenceImages.length) payload.image = referenceImages
       const response = await withRetry(
         () => axios.post(`${provider.baseUrl}/images/generations`, payload, {
@@ -139,4 +121,4 @@ async function callEditsEndpoint(
   return response.data
 }
 
-export const openaiImagesAdapter: ProviderAdapter = { submit, poll }
+export const openaiImagesAdapter: ProviderAdapter = makeSyncAdapter(execute)
