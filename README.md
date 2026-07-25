@@ -1,5 +1,7 @@
 # MuseStudio
 
+<img src="assets/icon.jpg" alt="MuseStudio icon" width="192" align="right" />
+
 English · [中文](README.zh-CN.md)
 
 A lightweight, API-first image generation studio. Like Threads, it lets you advance multiple ideas in parallel within a single conversation — no need to wait for one image to finish before sending the next request, referencing an old image, or spawning a variant from any previous result. Built for users who have moved past the "tweak every parameter" phase and just want to iterate on ideas quickly through conversation.

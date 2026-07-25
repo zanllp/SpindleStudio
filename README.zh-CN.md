@@ -1,5 +1,7 @@
 # MuseStudio
 
+<img src="assets/icon.jpg" alt="MuseStudio 图标" width="192" align="right" />
+
 [English](README.md) · 中文
 
 一个轻量级的纯 API 生图工作台。像 Threads 一样，在同一个会话里并发推进多个想法——不需要等上一张图跑完，就能继续发新的生图请求、引用旧图、或在任意历史结果上追加变体。适合已经跨过「调参阶段」、只想把注意力放回创意本身的用户。
