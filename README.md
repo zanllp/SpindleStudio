@@ -1,6 +1,6 @@
 # MuseStudio
 
-<img src="assets/icon.jpg" alt="MuseStudio icon" width="192" align="right" />
+<img src="assets/icon.jpg" alt="MuseStudio icon" width="256" align="right" />
 
 English · [中文](README.zh-CN.md)
 

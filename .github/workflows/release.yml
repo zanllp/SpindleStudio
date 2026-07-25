@@ -1,0 +1,111 @@
+name: build-and-release
+
+on:
+  push:
+    branches:
+      - 'releases/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build app
+        run: yarn build
+
+      - name: Read version
+        shell: bash
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
+      - name: Package Windows
+        if: matrix.os == 'windows-latest'
+        run: npx electron-builder --win nsis portable --publish never
+
+      - name: Package Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libnss3 libasound2-dev
+          npx electron-builder --linux AppImage --publish never
+
+      - name: Package macOS
+        if: matrix.os == 'macos-latest'
+        run: npx electron-builder --mac dmg zip --publish never
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuseStudio-${{ env.VERSION }}-${{ runner.os }}
+          path: |
+            release/*.exe
+            release/*.AppImage
+            release/*.dmg
+            release/*.zip
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/heads/releases/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+
+      - name: Read version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: MuseStudio-${{ env.VERSION }}-Windows
+          path: artifacts
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: MuseStudio-${{ env.VERSION }}-Linux
+          path: artifacts
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: MuseStudio-${{ env.VERSION }}-macOS
+          path: artifacts
+
+      - name: Delete existing drafts
+        uses: hugo19941994/delete-draft-releases@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          tag_name: v${{ env.VERSION }}
+          name: MuseStudio v${{ env.VERSION }}
+          files: artifacts/**/*
+          generate_release_notes: true
