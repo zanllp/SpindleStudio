@@ -8,12 +8,24 @@ import type { ProviderAdapter, ProviderType } from './types'
 // persisted). Lets the UI render provider-specific constraints without
 // hardcoding provider types in components.
 export interface ProviderUiHints {
+  // Aspect ratios the provider supports. When absent the UI shows the full set.
+  sizes?: string[]
   // 4K resolution is only offered for widescreen aspect ratios (API Mart limit)
   widescreenOnly4k?: boolean
   // With reference images + auto aspect ratio, force this resolution
   // (API Mart img2img behaves best at 1k)
   i2iAutoResolution?: string
 }
+
+// Aspect ratios shared by most OpenRouter image models via the Fusion API.
+// Extended ratios (1:2, 2:1, 9:21, 1:4, 4:1, 1:8, 8:1) are only available on
+// google/gemini-3.1-flash-image-preview — they are intentionally omitted from
+// the common set to avoid confusing users.
+const OPENROUTER_COMMON_SIZES = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9']
+// API Mart (gpt-image-2) supports a wider range including all common DALL·E ratios
+const APIMART_SIZES = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '21:9', '9:21']
+// OpenAI native images endpoint — DALL·E-era ratios
+const OPENAI_SIZES = ['auto', '1:1', '16:9', '9:16']
 
 interface AdapterEntry {
   type: ProviderType
@@ -29,10 +41,10 @@ export const ADAPTER_REGISTRY: AdapterEntry[] = [
   {
     type: 'apimart-task',
     adapter: apimartAdapter,
-    uiHints: { widescreenOnly4k: true, i2iAutoResolution: '1k' },
+    uiHints: { sizes: APIMART_SIZES, widescreenOnly4k: true, i2iAutoResolution: '1k' },
   },
-  { type: 'openai-images', adapter: openaiImagesAdapter },
-  { type: 'openrouter-images', adapter: openrouterImagesAdapter },
+  { type: 'openai-images', adapter: openaiImagesAdapter, uiHints: { sizes: OPENAI_SIZES } },
+  { type: 'openrouter-images', adapter: openrouterImagesAdapter, uiHints: { sizes: OPENROUTER_COMMON_SIZES } },
 ]
 
 // Provider adapters keyed by provider type

@@ -18,7 +18,17 @@
       <a-input v-model:value="draft.baseUrl" @blur="save({ baseUrl: draft.baseUrl.trim() })" />
     </div>
     <div class="form-item">
-      <div class="form-label">{{ $t('settings.providers.form.models') }}</div>
+      <div class="form-label-row">
+        <span class="form-label">{{ $t('settings.providers.form.models') }}</span>
+        <AppButton
+          v-if="provider.type === 'openrouter-images'"
+          size="small"
+          :loading="refreshing"
+          @click="refreshModels"
+        >
+          {{ $t('settings.providers.form.refreshModels') }}
+        </AppButton>
+      </div>
       <ModelListEditor :models="provider.models" @update:models="save({ models: $event })" />
     </div>
   </div>
@@ -29,6 +39,8 @@ import { computed, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings'
+import api from '@/api'
+import AppButton from './AppButton.vue'
 import ModelListEditor from './ModelListEditor.vue'
 
 const props = defineProps<{ providerId: string }>()
@@ -46,11 +58,29 @@ const typeLabel = computed(() => {
 
 // 本地草稿：输入过程不落盘，blur 时保存
 const draft = ref({ name: '', apiKey: '', baseUrl: '' })
+const refreshing = ref(false)
 if (provider.value) {
   draft.value = {
     name: provider.value.name,
     apiKey: provider.value.apiKey,
     baseUrl: provider.value.baseUrl,
+  }
+}
+
+async function refreshModels() {
+  refreshing.value = true
+  try {
+    const result = await api.refreshProviderModels(props.providerId)
+    await settingsStore.loadConfig()
+    if (result.removed?.length) {
+      message.warning(t('settings.providers.form.refreshRemoved', { models: result.removed.join(', ') }))
+    } else {
+      message.success(t('settings.providers.form.refreshOk'))
+    }
+  } catch (e: any) {
+    message.error(e.response?.data?.error || e.message || t('errors.saveFailed'))
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -96,5 +126,16 @@ async function save(patch: Parameters<typeof settingsStore.updateProvider>[1]) {
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 6px;
+}
+
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.form-label-row .form-label {
+  margin-bottom: 0;
 }
 </style>

@@ -34,6 +34,30 @@ export const api = {
     return response.data
   },
 
+  // Import providers from an existing data directory (welcome modal)
+  async importConfig(dataDir: string): Promise<AppConfig & { imported: number }> {
+    const response = await apiClient.post('/api/config/import', { dataDir })
+    return response.data
+  },
+
+  // Refresh OpenRouter model list from upstream discovery API
+  async refreshProviderModels(providerId: string): Promise<AppConfig & { removed?: string[] }> {
+    const response = await apiClient.post(`/api/providers/${providerId}/refresh-models`)
+    return response.data
+  },
+
+  // Get data directory paths (for Settings > General)
+  async getDataDirs(): Promise<{ dataDir: string; generatedImagesDir: string; conversationsDir: string; uploadsDir: string }> {
+    const response = await apiClient.get('/api/data-dirs')
+    return response.data
+  },
+
+  // Open a folder in the OS file manager
+  async openFolder(path: string): Promise<{ success: boolean }> {
+    const response = await apiClient.post('/api/open-folder', { path })
+    return response.data
+  },
+
   // ==================== Image generation ====================
 
   // Submit a generation task (unified across providers)

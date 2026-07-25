@@ -1,18 +1,18 @@
 {
-  "name": "chatimghub",
+  "name": "musestudio",
   "version": "1.0.0",
-  "description": "A chat-style desktop app for multi-provider AI image generation",
+  "description": "A lightweight, Threads-style image generation studio for parallel ideas",
   "main": "electron/main.cjs",
   "author": "zanllp",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zanllp/ChatImgHub.git"
+    "url": "https://github.com/zanllp/MuseStudio.git"
   },
   "bugs": {
-    "url": "https://github.com/zanllp/ChatImgHub/issues"
+    "url": "https://github.com/zanllp/MuseStudio/issues"
   },
-  "homepage": "https://github.com/zanllp/ChatImgHub#readme",
+  "homepage": "https://github.com/zanllp/MuseStudio#readme",
   "keywords": [
     "ai-image-generation",
     "multi-provider",
@@ -28,8 +28,8 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"tsx watch server/index.ts\"",
-    "dev:electron": "concurrently -k \"vite\" \"tsx watch server/index.ts\" \"wait-on tcp:5173 tcp:3210 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
+    "dev": "concurrently -k \"tsx watch server/index.ts\" \"wait-on file:.server-port && vite\"",
+    "dev:electron": "concurrently -k \"tsx watch server/index.ts\" \"wait-on file:.server-port && vite\" \"wait-on file:.server-port tcp:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
     "build": "vue-tsc && vite build && tsc -p tsconfig.server.json",
     "start": "node dist-server/index.js",
     "electron": "electron .",
@@ -69,8 +69,8 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.zanllp.chatimghub",
-    "productName": "ChatImgHub",
+    "appId": "com.zanllp.musestudio",
+    "productName": "MuseStudio",
     "directories": {
       "output": "release"
     },

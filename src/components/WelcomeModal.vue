@@ -11,9 +11,12 @@
     <p class="welcome-desc">{{ $t('welcome.desc') }}</p>
 
     <div class="welcome-form">
-      <div class="welcome-label">{{ $t('welcome.provider') }}</div>
+      <div class="welcome-label">{{ $t('settings.general.language') }}</div>
+      <a-select v-model:value="localePref" :options="languageOptions" style="width: 100%;" />
+
+      <div class="welcome-label" style="margin-top: 14px;">{{ $t('welcome.provider') }}</div>
       <a-select v-model:value="providerId" :options="providerOptions" style="width: 100%;" />
-      <div class="welcome-label" style="margin-top: 12px;">{{ $t('welcome.apiKey') }}</div>
+      <div class="welcome-label" style="margin-top: 14px;">{{ $t('welcome.apiKey') }}</div>
       <a-input-password v-model:value="apiKey" placeholder="sk-..." @pressEnter="start" />
     </div>
 
@@ -24,6 +27,23 @@
         {{ $t('welcome.start') }}
       </AppButton>
     </div>
+
+    <a-divider style="margin: 16px 0 12px; font-size: 12px; color: var(--text-tertiary);">
+      {{ $t('welcome.orImport') }}
+    </a-divider>
+
+    <div class="import-row">
+      <a-input
+        v-model:value="importDir"
+        :placeholder="$t('welcome.importPlaceholder')"
+        size="small"
+        style="flex: 1;"
+        @pressEnter="doImport"
+      />
+      <AppButton size="small" :loading="importing" :disabled="!importDir.trim()" @click="doImport">
+        {{ $t('welcome.importBtn') }}
+      </AppButton>
+    </div>
   </a-modal>
 </template>
 
@@ -32,6 +52,9 @@ import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings'
+import { localePreference, setLocale } from '@/i18n'
+import type { LocalePreference } from '@/i18n'
+import api from '@/api'
 import AppButton from './AppButton.vue'
 
 const settingsStore = useSettingsStore()
@@ -44,15 +67,47 @@ const visible = computed(
   () => settingsStore.loaded && !settingsStore.hasUsableProvider && !dismissed.value,
 )
 
-// 只列出有模型的供应商（无模型的供应商填了 Key 也不可用）
+// 只列出有模型的供应商（无模型的供应商填了 Key 也不可用），apimart 排在最后
 const providerOptions = computed(() =>
   settingsStore.providers
     .filter(p => p.models.length > 0)
-    .map(p => ({ value: p.id, label: p.name })),
+    .map(p => ({ value: p.id, label: p.name }))
+    .sort((a, b) => {
+      if (a.value === 'apimart') return 1
+      if (b.value === 'apimart') return -1
+      return 0
+    }),
 )
 const providerId = ref('')
 const apiKey = ref('')
 const saving = ref(false)
+
+// Import from existing data directory
+const importDir = ref('')
+const importing = ref(false)
+async function doImport() {
+  const dir = importDir.value.trim()
+  if (!dir) return
+  importing.value = true
+  try {
+    await api.importConfig(dir)
+    await settingsStore.loadConfig()
+    message.success(t('welcome.importOk'))
+  } catch (e: any) {
+    message.error(e.response?.data?.error || e.message || t('welcome.importFailed'))
+  } finally {
+    importing.value = false
+  }
+}
+
+// Language preference — synced with the global i18n setting
+const localePref = ref<LocalePreference>(localePreference.value)
+const languageOptions = computed(() => [
+  { value: 'auto' as LocalePreference, label: t('settings.general.auto') },
+  { value: 'zh-CN' as LocalePreference, label: t('settings.general.zhCN') },
+  { value: 'en-US' as LocalePreference, label: t('settings.general.enUS') },
+])
+watch(localePref, val => setLocale(val))
 
 // 默认值在配置加载后填充（modal 可能在 loadConfig 完成前就渲染）
 watch(
@@ -60,7 +115,7 @@ watch(
   loaded => {
     if (loaded && !providerId.value) {
       providerId.value =
-        settingsStore.providers.find(p => p.id === 'apimart')?.id || providerOptions.value[0]?.value || ''
+        settingsStore.providers.find(p => p.id === 'openrouter')?.id || providerOptions.value[0]?.value || ''
     }
   },
   { immediate: true },
@@ -106,5 +161,11 @@ function dismiss() {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
+}
+
+.import-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 </style>

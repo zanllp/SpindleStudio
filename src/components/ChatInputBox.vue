@@ -180,11 +180,13 @@ function pickUpload(item: UploadHistoryItem) {
   chatStore.addPendingReference({ url: item.url, filename: item.filename })
 }
 
-// 与工作台 API Mart 面板一致的比例选项（label 走 i18n，随语言切换）
-const SIZE_VALUES = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '21:9', '9:21']
-const sizeOptions = computed(() =>
-  SIZE_VALUES.map(v => ({ value: v, label: t(`chat.input.sizes.${v}`) })),
-)
+// Aspect ratios filtered by provider type via uiHints.sizes.
+// Fallback full set is API Mart compatible (gpt-image-2 supports all of them).
+const SIZE_FALLBACK = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '21:9', '9:21']
+const sizeOptions = computed(() => {
+  const sizes = settingsStore.selectedProvider?.uiHints?.sizes || SIZE_FALLBACK
+  return sizes.map(v => ({ value: v, label: t(`chat.input.sizes.${v}`) }))
+})
 
 // 4K 仅支持宽屏比例（由供应商类型的 uiHints 下发，当前只有 API Mart 有此限制；
 // OpenAI 系映射为 quality 无此限制）

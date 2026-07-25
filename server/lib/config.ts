@@ -8,6 +8,7 @@ import type { ProviderConfig, ProviderModel } from '../providers/types'
 export interface AiChatConfig {
   apiKey: string
   baseUrl: string
+  model: string
 }
 
 export interface AppConfig {
@@ -68,7 +69,7 @@ export const OPENROUTER_MODEL_PRESETS: ProviderModel[] = [
 ]
 
 let configFile = ''
-let appConfig: AppConfig = { providers: [], aiChat: { apiKey: '', baseUrl: DEFAULT_OPENAI_BASE_URL } }
+let appConfig: AppConfig = { providers: [], aiChat: { apiKey: '', baseUrl: DEFAULT_OPENAI_BASE_URL, model: 'gpt-4o-mini' } }
 
 export function getConfig(): AppConfig {
   return appConfig
@@ -111,11 +112,13 @@ function defaultProviders(): ProviderConfig[] {
 
 export async function initConfig(dataDir: string): Promise<AppConfig> {
   configFile = path.join(dataDir, 'config.json')
+  console.log(`[config] configFile: ${configFile}`)
   appConfig = {
     providers: defaultProviders(),
     aiChat: {
       apiKey: process.env.OPENAI_API_KEY || '',
       baseUrl: process.env.OPENAI_BASE_URL || DEFAULT_OPENAI_BASE_URL,
+      model: 'gpt-4o-mini',
     },
   }
 
@@ -124,8 +127,9 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
     // Strip a possible BOM — some editors write UTF-8 with one and JSON.parse rejects it
     const raw = await fs.readFile(configFile, 'utf-8')
     saved = JSON.parse(raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw)
+    console.log(`[config] loaded existing config.json — ${saved.providers?.length || 0} providers`)
   } catch {
-    // No config file yet — env/defaults only
+    console.log('[config] no config.json yet, using defaults')
   }
 
   if (saved) {
@@ -183,6 +187,7 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
 async function persistConfig(): Promise<void> {
   await fs.mkdir(path.dirname(configFile), { recursive: true })
   await fs.writeFile(configFile, JSON.stringify(appConfig, null, 2))
+  console.log(`[config] saved to ${configFile}`)
 }
 
 export async function saveConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
@@ -193,6 +198,7 @@ export async function saveConfig(patch: Partial<AppConfig>): Promise<AppConfig> 
     appConfig.aiChat = {
       apiKey: typeof patch.aiChat.apiKey === 'string' ? patch.aiChat.apiKey.trim() : appConfig.aiChat.apiKey,
       baseUrl: normalizeBaseUrl(patch.aiChat.baseUrl, DEFAULT_OPENAI_BASE_URL),
+      model: typeof patch.aiChat.model === 'string' ? patch.aiChat.model.trim() || 'gpt-4o-mini' : appConfig.aiChat.model,
     }
   }
   await persistConfig()

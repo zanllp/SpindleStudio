@@ -18,7 +18,7 @@ function fatal(err) {
   } catch {
     // userData not writable — the dialog still shows the error
   }
-  dialog.showErrorBox('ChatImgHub 启动失败 / Startup failed', msg)
+  dialog.showErrorBox('MuseStudio 启动失败 / Startup failed', msg)
   app.quit()
 }
 process.on('uncaughtException', fatal)

@@ -32,6 +32,8 @@ const io = new Server(httpServer, {
   serveClient: false,    // we bundle the client lib ourselves
 })
 const PORT = Number(process.env.PORT) || 3210
+const PORT_RETRY_LIMIT = 10
+const PORT_FILE = path.join(process.cwd(), '.server-port')
 
 // socket.io connection logging for debugging cross-window/tab sync
 io.on('connection', (socket) => {
@@ -45,7 +47,14 @@ io.on('connection', (socket) => {
 // Electron sets DATA_DIR to the app userData folder when packaged.
 // In dev / headless B/S mode the default is ./data/ — a single subdirectory
 // that keeps user data out of the source tree.
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data')
+const DATA_DIR = process.env.DATA_DIR
+  ? (console.log(`[data] DATA_DIR from env: ${process.env.DATA_DIR}`), process.env.DATA_DIR)
+  : (() => {
+      const d = path.join(process.cwd(), 'data')
+      console.log(`[data] DATA_DIR not set, using cwd fallback: ${d}`)
+      console.log(`[data]   cwd = ${process.cwd()}`)
+      return d
+    })()
 
 // One-time migration: if the parent of DATA_DIR has flat data files (old layout
 // from before data/ was consolidated) and DATA_DIR is still empty, move them in.
@@ -69,6 +78,9 @@ async function migrateDataDir() {
 const SAVE_DIR = path.join(DATA_DIR, 'generated-images')
 const CONVERSATIONS_DIR = path.join(DATA_DIR, 'conversations')
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploaded-images')
+console.log(`[data] SAVE_DIR: ${SAVE_DIR}`)
+console.log(`[data] CONVERSATIONS_DIR: ${CONVERSATIONS_DIR}`)
+console.log(`[data] UPLOADS_DIR: ${UPLOADS_DIR}`)
 
 // Proxy support — axios does not read HTTP_PROXY/HTTPS_PROXY automatically
 const HTTPS_PROXY = process.env.HTTPS_PROXY || process.env.https_proxy || ''
@@ -104,6 +116,135 @@ app.put('/api/config', async (req, res) => {
     res.json(saved)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
+  }
+})
+
+// Import providers from an existing data directory — used by the welcome modal
+// when the user points the app at a pre-existing config folder.
+app.post('/api/config/import', async (req, res) => {
+  try {
+    const srcDir = String(req.body?.dataDir || '').trim()
+    if (!srcDir) return res.status(400).json({ error: t(req, 'invalidDataDir') })
+    const srcFile = path.join(srcDir, 'config.json')
+    let src: any
+    try {
+      const raw = await fs.readFile(srcFile, 'utf-8')
+      src = JSON.parse(raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw)
+    } catch {
+      return res.status(404).json({ error: t(req, 'noConfigFound', { dir: srcDir }) })
+    }
+    const srcProviders: any[] = Array.isArray(src.providers) ? src.providers : []
+    const imported = srcProviders.filter((p: any) => p.apiKey)
+    if (!imported.length) {
+      return res.status(404).json({ error: t(req, 'noImportableKeys', { dir: srcDir }) })
+    }
+    // Merge: overwrite providers with matching ids, append new ones
+    const current = getConfig()
+    const merged = [...current.providers]
+    for (const sp of imported) {
+      const idx = merged.findIndex(p => p.id === sp.id)
+      const entry = {
+        id: String(sp.id || '').slice(0, 64),
+        name: String(sp.name || sp.id || '').slice(0, 64),
+        type: sp.type || 'openai-images',
+        enabled: true,
+        apiKey: String(sp.apiKey || '').trim(),
+        baseUrl: String(sp.baseUrl || '').trim(),
+        models: Array.isArray(sp.models) ? sp.models : [],
+      }
+      if (idx >= 0) {
+        merged[idx] = { ...merged[idx], ...entry, models: entry.models.length ? entry.models : merged[idx].models }
+      } else {
+        merged.push(entry)
+      }
+    }
+    const saved = await saveConfig({ providers: merged })
+    res.json({ imported: imported.length, ...saved })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Expose data directory paths so the UI can show / open / copy them
+app.get('/api/data-dirs', (_req, res) => {
+  res.json({
+    dataDir: DATA_DIR,
+    generatedImagesDir: SAVE_DIR,
+    conversationsDir: CONVERSATIONS_DIR,
+    uploadsDir: UPLOADS_DIR,
+  })
+})
+
+// Open a folder in the OS file manager (Windows: Explorer, macOS: Finder, etc.)
+app.post('/api/open-folder', (req, res) => {
+  const target = String(req.body?.path || '')
+  if (!target) return res.status(400).json({ error: 'path required' })
+  const { exec } = require('child_process')
+  const cmd = process.platform === 'darwin' ? `open "${target}"` : process.platform === 'win32' ? `start "" "${target}"` : `xdg-open "${target}"`
+  exec(cmd, (err: any) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json({ success: true })
+  })
+})
+
+// Refresh model list from provider's image model discovery API.
+// Currently only OpenRouter (GET {baseUrl}/images/models) is supported.
+app.post('/api/providers/:id/refresh-models', async (req, res) => {
+  try {
+    const cfg = getConfig()
+    const provider = cfg.providers.find(p => p.id === req.params.id)
+    if (!provider) return res.status(404).json({ error: t(req, 'providerGone', { id: req.params.id }) })
+    if (provider.type !== 'openrouter-images') {
+      return res.status(400).json({ error: 'Model refresh is only supported for OpenRouter' })
+    }
+    if (!provider.apiKey) return res.status(400).json({ error: t(req, 'apiKeyMissing', { provider: provider.name }) })
+
+    const resp = await axios.get(`${provider.baseUrl}/images/models`, {
+      headers: { Authorization: `Bearer ${provider.apiKey}` },
+      timeout: 30000,
+    })
+
+    const fetched: { id: string; label: string }[] = (resp.data?.data || [])
+      .filter((m: any) => m?.id)
+      .map((m: any) => ({
+        id: m.id,
+        // Use the model id as label by default; user can tweak in settings
+        label: m.id.split('/').pop() || m.id,
+      }))
+
+    if (!fetched.length) {
+      return res.status(502).json({ error: 'Empty model list from upstream' })
+    }
+
+    // Merge: keep existing models that still appear in the upstream list
+    // (preserving their enabled flag and custom label), append new ones disabled.
+    // Track removed models so the UI can warn about deprecated entries.
+    const existing = new Map(provider.models.map(m => [m.id, m]))
+    const fetchedIds = new Set(fetched.map(f => f.id))
+    const removed = provider.models.filter(m => !fetchedIds.has(m.id) && m.enabled !== false)
+
+    const merged = fetched.map(f => {
+      const old = existing.get(f.id)
+      return {
+        id: f.id,
+        label: old?.label || f.label,
+        // Keep user's toggle state for existing models; new models default off
+        ...(old?.enabled === false ? { enabled: false } : {}),
+        ...(!old ? { enabled: false } : {}),
+      }
+    })
+
+    const updated = cfg.providers.map(p =>
+      p.id === provider.id ? { ...p, models: merged } : p,
+    )
+    const saved = await saveConfig({ providers: updated })
+    console.log(`[openrouter] refreshed models: ${fetched.length} fetched (${merged.length} merged)${removed.length ? `, ${removed.length} removed` : ''}`)
+    res.json({ ...saved, removed: removed.map(m => m.id) })
+  } catch (error: any) {
+    console.error('refresh-models failed:', error.response?.data || error.message)
+    res.status(error.response?.status || 502).json({
+      error: error.response?.data?.error || error.message || 'Failed to fetch models',
+    })
   }
 })
 
@@ -512,7 +653,9 @@ app.use('/images', express.static(SAVE_DIR))
 app.use('/uploads', express.static(UPLOADS_DIR))
 
 // Frontend build output
-const distDir = path.join(process.cwd(), 'dist')
+// __dirname works for both dev (server/) and production (dist-server/) —
+// dist/ is always one level up from this file's directory.
+const distDir = path.join(__dirname, '..', 'dist')
 app.use(express.static(distDir))
 
 // SPA fallback — every non-API route returns index.html
@@ -534,10 +677,37 @@ app.get('*', (req, res, next) => {
   await fs.mkdir(CONVERSATIONS_DIR, { recursive: true })
   await fs.mkdir(UPLOADS_DIR, { recursive: true })
   await Promise.all([initConfig(DATA_DIR), initTasks(DATA_DIR)])
-  httpServer.listen(PORT, () => {
-    console.log(`ChatImgHub server: http://localhost:${PORT}`)
-    console.log(`Data directory: ${DATA_DIR}`)
-    const ready = getConfig().providers.filter(p => p.enabled && p.apiKey).map(p => p.name)
-    console.log(`Image providers: ${ready.length ? ready.join(', ') : 'NOT configured (open Settings in the app)'}`)
-  })
+
+  // Port auto-retry: if the default port is occupied, try the next N ports.
+  // The chosen port is written to .server-port so the Vite dev server and Electron
+  // can pick it up without hardcoding.
+  let actualPort = PORT
+  for (let attempt = 0; attempt < PORT_RETRY_LIMIT; attempt++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        httpServer.once('error', reject)
+        httpServer.listen(actualPort, () => {
+          httpServer.removeAllListeners('error')
+          resolve()
+        })
+      })
+      break // success
+    } catch (err: any) {
+      if (err.code === 'EADDRINUSE' && attempt < PORT_RETRY_LIMIT - 1) {
+        console.warn(`Port ${actualPort} is in use, trying ${actualPort + 1}...`)
+        actualPort++
+      } else {
+        throw err
+      }
+    }
+  }
+
+  // Persist the actual port so Vite / Electron can discover it
+  await fs.writeFile(PORT_FILE, String(actualPort))
+  process.env.PORT = String(actualPort) // so tsx watch restarts reuse the same port
+
+  console.log(`MuseStudio server: http://localhost:${actualPort}`)
+  console.log(`Data directory: ${DATA_DIR}`)
+  const ready = getConfig().providers.filter(p => p.enabled && p.apiKey).map(p => p.name)
+  console.log(`Image providers: ${ready.length ? ready.join(', ') : 'NOT configured (open Settings in the app)'}`)
 })()

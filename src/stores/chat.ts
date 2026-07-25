@@ -223,7 +223,7 @@ export const useChatStore = defineStore('chat', () => {
       .slice(0, 5)
       .map(p => p.slice(0, 500))
     if (userPrompts.length === 0) throw new Error(t('errors.noUserMessages'))
-    return api.summarizeConversationTitle(userPrompts)
+    return api.summarizeConversationTitle(userPrompts, settingsStore.config.aiChat.model)
   }
 
   // ==================== 发送消息与生成 ====================

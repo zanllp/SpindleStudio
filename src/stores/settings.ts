@@ -12,7 +12,7 @@ function genCustomProviderId(): string {
 }
 
 export const useSettingsStore = defineStore('settings', () => {
-  const config = ref<AppConfig>({ providers: [], aiChat: { apiKey: '', baseUrl: '' } })
+  const config = ref<AppConfig>({ providers: [], aiChat: { apiKey: '', baseUrl: '', model: 'gpt-4o-mini' } })
   const loaded = ref(false)
   const settingsOpen = ref(false)
   const selectedProviderId = ref('')
@@ -71,8 +71,8 @@ export const useSettingsStore = defineStore('settings', () => {
     config.value = await api.saveConfig({ providers: next })
   }
 
-  async function saveAiChat(apiKey: string, baseUrl: string) {
-    config.value = await api.saveConfig({ aiChat: { apiKey, baseUrl } })
+  async function saveAiChat(apiKey: string, baseUrl: string, model: string) {
+    config.value = await api.saveConfig({ aiChat: { apiKey, baseUrl, model } })
   }
 
   function updateProvider(id: string, patch: Partial<ProviderConfig>) {

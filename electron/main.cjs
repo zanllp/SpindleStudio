@@ -3,10 +3,39 @@
 // backend is expected to be started separately (npm run dev).
 const { app, BrowserWindow, Menu, dialog, shell } = require('electron')
 const path = require('path')
+const fs = require('fs')
+
+// ---- File logger: writes all console output to app.log next to the exe ----
+// Double-clicking the exe hides stdout, so we mirror every log to a file.
+let logFile = ''
+function initLogFile() {
+  const exeDir = path.dirname(app.getPath('exe'))
+  logFile = path.join(exeDir, 'app.log')
+  // Truncate on startup, keep a backup of the previous run
+  try {
+    const prev = fs.readFileSync(logFile, 'utf-8')
+    if (prev) fs.writeFileSync(logFile + '.prev', prev)
+  } catch {}
+  try { fs.writeFileSync(logFile, '') } catch {}
+}
+
+function logToFile(level, ...args) {
+  const line = `${new Date().toISOString()} [${level}] ${args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ')}\n`
+  try { if (logFile) fs.appendFileSync(logFile, line) } catch {}
+}
+
+// Wrap console methods so they always write to the log file
+;['log', 'warn', 'error'].forEach(level => {
+  const orig = console[level]
+  console[level] = function (...args) {
+    orig(...args)
+    logToFile(level, ...args)
+  }
+})
 
 // Any startup failure (embedded server crash, port conflict, bad native module…)
-// must be VISIBLE — never die silently with no window. Log to userData and show
-// a dialog before quitting.
+// must be VISIBLE — never die silently with no window. Log to userData, log file,
+// and show a dialog before quitting.
 function fatal(err) {
   const msg = err?.stack || String(err)
   console.error(msg)
@@ -18,14 +47,25 @@ function fatal(err) {
   } catch {
     // userData not writable — the dialog still shows the error
   }
-  dialog.showErrorBox('ChatImgHub 启动失败 / Startup failed', msg)
+  dialog.showErrorBox('MuseStudio 启动失败 / Startup failed', msg)
   app.quit()
 }
 process.on('uncaughtException', fatal)
 process.on('unhandledRejection', fatal)
 
 const DEV_URL = process.env.ELECTRON_START_URL || ''
-const SERVER_PORT = Number(process.env.PORT) || 3210
+
+function readServerPort() {
+  try {
+    const port = parseInt(require('fs').readFileSync(require('path').join(__dirname, '..', '.server-port'), 'utf-8').trim(), 10)
+    if (port > 0 && port < 65536) return port
+  } catch {
+    // .server-port not written yet — fall back to default
+  }
+  return Number(process.env.PORT) || 3210
+}
+
+const SERVER_PORT = readServerPort()
 const BASE_URL = DEV_URL || `http://localhost:${SERVER_PORT}`
 
 // Shared BrowserWindow options — also applied to child windows opened via
@@ -66,25 +106,62 @@ if (!gotLock) {
 // Precedence: DATA_DIR env var > data-dir.txt next to the exe (portable-friendly)
 // > data-dir.txt in userData > default (userData/data when packaged, cwd in dev).
 function resolveDataDir() {
-  if (process.env.DATA_DIR || !app.isPackaged) return
+  console.log('[electron] resolveDataDir start')
+  console.log(`[electron]   exe path: ${app.getPath('exe')}`)
+  console.log(`[electron]   isPackaged: ${app.isPackaged}`)
+  console.log(`[electron]   userData: ${app.getPath('userData')}`)
+  console.log(`[electron]   cwd: ${process.cwd()}`)
+  console.log(`[electron]   DATA_DIR env: ${process.env.DATA_DIR || '(not set)'}`)
+
+  if (process.env.DATA_DIR) {
+    console.log(`[electron] DATA_DIR already set via env, skipping resolution`)
+    return
+  }
   const fs = require('fs')
-  const candidates = [
-    path.join(path.dirname(app.getPath('exe')), 'data-dir.txt'),
-    path.join(app.getPath('userData'), 'data-dir.txt'),
-  ]
-  for (const file of candidates) {
+
+  // Portable: data-dir.txt next to the exe always takes precedence (portable USB use-case)
+  const portableFile = path.join(path.dirname(app.getPath('exe')), 'data-dir.txt')
+  try {
+    const dir = fs.readFileSync(portableFile, 'utf-8').trim()
+    if (dir) {
+      process.env.DATA_DIR = path.join(path.resolve(dir), 'data')
+      console.log(`[electron] data dir from data-dir.txt next to exe: ${process.env.DATA_DIR}`)
+      return
+    }
+  } catch {
+    console.log(`[electron] no data-dir.txt next to exe`)
+  }
+
+  // When packaged (installed via NSIS): default to userData/data,
+  // optionally overridden by data-dir.txt in userData
+  if (app.isPackaged) {
+    const userDataFile = path.join(app.getPath('userData'), 'data-dir.txt')
     try {
-      const dir = fs.readFileSync(file, 'utf-8').trim()
+      const dir = fs.readFileSync(userDataFile, 'utf-8').trim()
       if (dir) {
         process.env.DATA_DIR = path.join(path.resolve(dir), 'data')
-        console.log(`data dir from ${file}: ${process.env.DATA_DIR}`)
+        console.log(`[electron] data dir from data-dir.txt in userData: ${process.env.DATA_DIR}`)
         return
       }
     } catch {
-      // pointer file not present — try the next candidate
+      console.log(`[electron] no data-dir.txt in userData`)
     }
+    process.env.DATA_DIR = path.join(app.getPath('userData'), 'data')
+    console.log(`[electron] packaged — defaulting to userData/data: ${process.env.DATA_DIR}`)
+    return
   }
-  process.env.DATA_DIR = path.join(app.getPath('userData'), 'data')
+
+  // Unpacked / portable build without a data-dir.txt pointer:
+  // default to data/ next to the exe so the app is self-contained.
+  // Detect a packaged build by checking whether dist-server/ lives alongside
+  // electron/ (i.e. __dirname/../dist-server exists). Dev runs won't have this.
+  try {
+    fs.accessSync(path.join(__dirname, '..', 'dist-server'))
+    process.env.DATA_DIR = path.join(path.dirname(app.getPath('exe')), 'data')
+    console.log(`[electron] unpacked build detected — data next to exe: ${process.env.DATA_DIR}`)
+  } catch {
+    console.log(`[electron] dev mode — server will use cwd/data`)
+  }
 }
 
 async function startServer() {
@@ -206,6 +283,8 @@ function setupMenu() {
 }
 
 app.whenReady().then(async () => {
+  initLogFile()
+  console.log('=== MuseStudio starting ===')
   try {
     if (!DEV_URL) {
       await startServer()

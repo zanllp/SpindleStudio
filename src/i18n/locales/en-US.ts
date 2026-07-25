@@ -110,6 +110,12 @@ const messages: MessageSchema = {
       auto: 'System',
       zhCN: '中文',
       enUS: 'English',
+      dataFolder: 'Data folder',
+      openDataFolder: 'Open data folder',
+      copyChatPath: 'Copy generated images path',
+      copied: 'Copied',
+      openFailed: 'Open failed',
+      copyFailed: 'Copy failed',
     },
     providers: {
       empty: 'Select or add a provider',
@@ -126,6 +132,9 @@ const messages: MessageSchema = {
         apiKey: 'API Key',
         baseUrl: 'Base URL',
         models: 'Models',
+        refreshModels: 'Refresh from OpenRouter',
+        refreshOk: 'Model list refreshed',
+        refreshRemoved: 'These models were removed (deprecated upstream): {models}',
       },
       model: {
         idPlaceholder: 'Model ID, e.g. gpt-image-2',
@@ -139,6 +148,7 @@ const messages: MessageSchema = {
       tip: 'Used for the conversation title "AI Title" feature (optional). Any OpenAI-compatible endpoint.',
       apiKey: 'API Key',
       baseUrl: 'Base URL',
+      model: 'Model',
       metaPrompt: `Generate a short title for this conversation based on the following user messages.
 Requirements:
 - No more than 15 characters
@@ -150,13 +160,18 @@ User messages:
     },
   },
   welcome: {
-    title: 'Welcome to ChatImgHub',
+    title: 'Welcome to MuseStudio',
     desc: 'Choose a provider and fill in your API Key to start generating. You can also add or modify providers later via the Settings gear at the bottom left.',
     provider: 'Provider',
     apiKey: 'API Key',
     later: 'Configure later',
     fullSettings: 'Full settings',
     start: 'Get started',
+    orImport: 'Or import existing config',
+    importPlaceholder: 'Paste data directory path (data/)',
+    importBtn: 'Import',
+    importOk: 'Import successful',
+    importFailed: 'No valid config found',
   },
   errors: {
     noProvider: 'Configure and enable an image provider in Settings first',

@@ -28,6 +28,8 @@ export type ProviderType = 'apimart-task' | 'openai-images' | 'openrouter-images
 // UI-facing capability hints, code-derived per provider type and merged into
 // each provider by GET /api/config (never persisted to config.json)
 export interface ProviderUiHints {
+  // Aspect ratios the provider supports; absent = show all
+  sizes?: string[]
   // 4K resolution is only offered for widescreen aspect ratios
   widescreenOnly4k?: boolean
   // With reference images + auto aspect ratio, force this resolution
@@ -59,6 +61,7 @@ export interface ProviderConfig {
 export interface AiChatConfig {
   apiKey: string
   baseUrl: string
+  model: string
 }
 
 // App configuration managed by the settings page

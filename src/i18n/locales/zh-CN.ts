@@ -110,6 +110,12 @@ const messages = {
       auto: '跟随系统',
       zhCN: '中文',
       enUS: 'English',
+      dataFolder: '数据目录',
+      openDataFolder: '打开数据文件夹',
+      copyChatPath: '复制生成图片路径',
+      copied: '已复制',
+      openFailed: '打开失败',
+      copyFailed: '复制失败',
     },
     providers: {
       empty: '请选择或添加一个供应商',
@@ -126,6 +132,9 @@ const messages = {
         apiKey: 'API 密钥',
         baseUrl: 'API 地址',
         models: '模型',
+        refreshModels: '从 OpenRouter 刷新',
+        refreshOk: '模型列表已刷新',
+        refreshRemoved: '以下模型已下线并被移除: {models}',
       },
       model: {
         idPlaceholder: '模型 ID，如 gpt-image-2',
@@ -139,6 +148,7 @@ const messages = {
       tip: '用于会话标题的「AI 总结」功能（可选），任意 OpenAI 兼容接口。',
       apiKey: 'API 密钥',
       baseUrl: 'API 地址',
+      model: '模型',
       metaPrompt: `请根据以下用户消息，为这段对话生成一个简短的标题。
 要求：
 - 标题不超过15个字
@@ -150,13 +160,18 @@ const messages = {
     },
   },
   welcome: {
-    title: '欢迎使用 ChatImgHub',
+    title: '欢迎使用 MuseStudio',
     desc: '请选择供应商并填入 API Key 以开始生图。你稍后也可以在左下角 设置 中修改或添加更多供应商。',
     provider: '供应商',
     apiKey: 'API Key',
     later: '暂不配置',
     fullSettings: '完整设置',
     start: '开始使用',
+    orImport: '或导入已有配置',
+    importPlaceholder: '粘贴数据目录路径 (data/)',
+    importBtn: '导入',
+    importOk: '导入成功',
+    importFailed: '未找到有效配置',
   },
   errors: {
     noProvider: '请先在设置中配置并启用一个生图供应商',

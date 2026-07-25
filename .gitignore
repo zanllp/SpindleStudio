@@ -5,6 +5,7 @@ release
 .env
 .env.local
 data/
+.server-port
 *.log
 
 HANDOVER.md

@@ -35,6 +35,13 @@
                 <a-radio-button value="en-US">{{ $t('settings.general.enUS') }}</a-radio-button>
               </a-radio-group>
             </div>
+            <div class="form-item">
+              <div class="form-label">{{ $t('settings.general.dataFolder') }}</div>
+              <div class="data-folder-row">
+                <AppButton size="small" @click="openDataFolder">{{ $t('settings.general.openDataFolder') }}</AppButton>
+                <AppButton size="small" @click="copyChatImagesPath">{{ copied ? $t('settings.general.copied') : $t('settings.general.copyChatPath') }}</AppButton>
+              </div>
+            </div>
           </div>
           <template v-else-if="section === 'providers'">
             <SettingsProviderList :selected-id="editingProviderId" @select="editingProviderId = $event" />
@@ -52,6 +59,10 @@
               <div class="form-label">{{ $t('settings.aiChat.baseUrl') }}</div>
               <a-input v-model:value="aiChatDraft.baseUrl" placeholder="https://api.openai.com/v1" @blur="saveAiChat" />
             </div>
+            <div class="form-item">
+              <div class="form-label">{{ $t('settings.aiChat.model') }}</div>
+              <a-input v-model:value="aiChatDraft.model" placeholder="gpt-4o-mini" @blur="saveAiChat" />
+            </div>
           </div>
         </div>
       </div>
@@ -66,6 +77,8 @@ import { message } from 'ant-design-vue'
 import { useSettingsStore } from '@/stores/settings'
 import { localePreference, setLocale } from '@/i18n'
 import { useI18n } from 'vue-i18n'
+import api from '@/api'
+import AppButton from './AppButton.vue'
 import SettingsProviderList from './SettingsProviderList.vue'
 import SettingsProviderForm from './SettingsProviderForm.vue'
 
@@ -81,7 +94,36 @@ const settingsStore = useSettingsStore()
 const { t } = useI18n()
 const section = ref<SectionKey>('providers')
 const editingProviderId = ref('')
-const aiChatDraft = ref({ apiKey: '', baseUrl: '' })
+const aiChatDraft = ref({ apiKey: '', baseUrl: '', model: 'gpt-4o-mini' })
+const copied = ref(false)
+
+// Data folder actions — fetch paths from the server
+const dataDirs = ref({ dataDir: '', generatedImagesDir: '', conversationsDir: '', uploadsDir: '' })
+async function fetchDataDirs() {
+  try { dataDirs.value = await api.getDataDirs() } catch { /* server not ready */ }
+}
+
+async function openDataFolder() {
+  await fetchDataDirs()
+  if (dataDirs.value.dataDir) {
+    try { await api.openFolder(dataDirs.value.dataDir) } catch { message.error(t('settings.general.openFailed')) }
+  }
+}
+
+async function copyChatImagesPath() {
+  await fetchDataDirs()
+  // The chat category images live under generated-images/chat/
+  const chatPath = dataDirs.value.generatedImagesDir ? `${dataDirs.value.generatedImagesDir}/chat` : ''
+  if (chatPath) {
+    try {
+      await navigator.clipboard.writeText(chatPath)
+      copied.value = true
+      setTimeout(() => (copied.value = false), 2000)
+    } catch {
+      message.error(t('settings.general.copyFailed'))
+    }
+  }
+}
 
 // (Re)initialize drafts each time the settings page opens
 watch(
@@ -92,6 +134,7 @@ watch(
     aiChatDraft.value = {
       apiKey: settingsStore.config.aiChat.apiKey,
       baseUrl: settingsStore.config.aiChat.baseUrl,
+      model: settingsStore.config.aiChat.model || 'gpt-4o-mini',
     }
   },
   { immediate: true },
@@ -103,7 +146,7 @@ function close() {
 
 async function saveAiChat() {
   try {
-    await settingsStore.saveAiChat(aiChatDraft.value.apiKey.trim(), aiChatDraft.value.baseUrl.trim())
+    await settingsStore.saveAiChat(aiChatDraft.value.apiKey.trim(), aiChatDraft.value.baseUrl.trim(), aiChatDraft.value.model.trim())
   } catch (e: any) {
     message.error(e.response?.data?.error || e.message || t('errors.saveFailed'))
   }
@@ -267,5 +310,11 @@ async function saveAiChat() {
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 6px;
+}
+
+.data-folder-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>

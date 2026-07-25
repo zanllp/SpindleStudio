@@ -54,6 +54,18 @@ const MESSAGES = {
     zh: '非法路径',
     en: 'Invalid path',
   },
+  invalidDataDir: {
+    zh: '请提供数据目录路径',
+    en: 'Data directory path is required',
+  },
+  noConfigFound: {
+    zh: '在 {dir} 中未找到 config.json',
+    en: 'No config.json found in {dir}',
+  },
+  noImportableKeys: {
+    zh: '在 {dir} 中未找到已配置 API Key 的供应商',
+    en: 'No providers with API keys found in {dir}',
+  },
   newConversationTitle: {
     zh: '新对话',
     en: 'New Conversation',

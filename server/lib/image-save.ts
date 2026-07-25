@@ -169,7 +169,7 @@ export async function saveGeneratedImages(
       `Quality: ${resolution}`,
       ...(isImg2Img ? [`Img2img: true`] : []),
       `Version: v1.0`,
-      `Source Identifier: ChatImgHub`,
+      `Source Identifier: MuseStudio`,
     ]
     const metadataText = [
       prompt,
