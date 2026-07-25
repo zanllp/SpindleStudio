@@ -43,9 +43,18 @@
   /* 主区与文字 */
   --main-bg: #ffffff;
   --main-blur: none;
+
+  /* 设置页：ChatGPT 为全屏页面 —— 窗口变量留空，无窗框 */
+  --settings-bg: #ffffff;
+  --settings-window-max-w: none;
+  --settings-window-max-h: none;
+  --settings-window-gap: 0;
+  --settings-window-radius: 0;
+  --settings-window-border: none;
+  --settings-window-shadow: none;
   --text-primary: #1a1a1a;
-  --text-secondary: #888;
-  --text-faint: #bbb;
+  --text-secondary: #5c5c5c;
+  --text-faint: #7a7a7a;
   --border-subtle: #ececec;
   --border-strong: #999;
   --empty-icon: #ddd;
@@ -127,11 +136,11 @@ html[data-theme='frutiger-aero'] {
   --header-bg: rgba(255, 255, 255, 0.55);
   --header-border: rgba(255, 255, 255, 0.75);
   --header-text: #123c54;
-  --header-blur: blur(14px) saturate(1.4);
+  --header-blur: none;
 
   --sider-bg: rgba(255, 255, 255, 0.48);
   --sider-border: rgba(255, 255, 255, 0.6);
-  --sider-blur: blur(14px) saturate(1.3);
+  --sider-blur: none;
   --sider-text: #14455f;
   --sider-faint: #7aa7bc;
   --sider-icon: #5e8ca3;
@@ -151,10 +160,19 @@ html[data-theme='frutiger-aero'] {
 
   /* 主区：85% 白玻璃 + 较强模糊 —— 壁纸透成柔和色彩，细节被糊掉不抢阅读 */
   --main-bg: rgba(255, 255, 255, 0.311);
-  --main-blur: blur(18px) saturate(1.4);
+  --main-blur: none;
+
+  /* 设置页：悬浮的 Aero 白玻璃窗 —— 高光描边 + 辉光阴影，内容窗格近实保证表单可读 */
+  --settings-bg: rgba(255, 255, 255, 0.85);
+  --settings-window-max-w: 940px;
+  --settings-window-max-h: 84vh;
+  --settings-window-gap: 24px;
+  --settings-window-radius: 14px;
+  --settings-window-border: 1px solid rgba(255, 255, 255, 0.85);
+  --settings-window-shadow: 0 0 0 1px rgba(110, 180, 225, 0.45), 0 12px 40px rgba(46, 116, 160, 0.4);
   --text-primary: #143d52;
-  --text-secondary: #5b87a0;
-  --text-faint: #8fb2c4;
+  --text-secondary: #4b738a;
+  --text-faint: #598096;
   --border-subtle: rgba(255, 255, 255, 0.65);
   --border-strong: #6a9cb5;
   --empty-icon: #9fc8de;
@@ -170,7 +188,7 @@ html[data-theme='frutiger-aero'] {
   --input-border: rgba(151, 199, 227, 0.75);
   --input-radius: 18px;
   --input-shadow: 0 4px 18px rgba(46, 116, 160, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --input-blur: blur(14px) saturate(1.3);
+  --input-blur: none;
   --input-focus-border: #54a9e0;
   --input-focus-shadow: 0 0 0 3px rgba(84, 169, 224, 0.28), 0 4px 18px rgba(46, 116, 160, 0.2);
 
@@ -226,11 +244,11 @@ html[data-theme='vista'] {
   --header-bg: rgba(20, 32, 46, 0.72);
   --header-border: rgba(255, 255, 255, 0.12);
   --header-text: #e8eef4;
-  --header-blur: blur(18px) saturate(1.3);
+  --header-blur: none;
 
   --sider-bg: rgba(24, 36, 52, 0.68);
   --sider-border: rgba(255, 255, 255, 0.1);
-  --sider-blur: blur(18px) saturate(1.3);
+  --sider-blur: none;
   --sider-text: #d3dfe9;
   --sider-faint: #6e8090;
   --sider-icon: #8fa2b3;
@@ -250,10 +268,19 @@ html[data-theme='vista'] {
 
   /* 主区：78% 浅色玻璃 + 重模糊 —— 极光透成一层蓝绿柔光，而不是被完全挡住 */
   --main-bg: rgba(5, 5, 5, 0.11);
-  --main-blur: blur(24px) saturate(1.25);
+  --main-blur: none;
+
+  /* 设置页：Vista 系统窗 —— 暗玻璃标题栏 + 浅色内容窗格 + 蓝色辉光边框 */
+  --settings-bg: rgba(244, 248, 252, 0.94);
+  --settings-window-max-w: 940px;
+  --settings-window-max-h: 84vh;
+  --settings-window-gap: 24px;
+  --settings-window-radius: 8px;
+  --settings-window-border: 1px solid rgba(140, 190, 235, 0.45);
+  --settings-window-shadow: 0 0 20px rgba(90, 150, 210, 0.35), 0 14px 44px rgba(0, 0, 0, 0.5);
   --text-primary: #1d2b38;
-  --text-secondary: #7b8a99;
-  --text-faint: #b0bac3;
+  --text-secondary: #4d5d6c;
+  --text-faint: #657583;
   --border-subtle: #dde4ea;
   --border-strong: #8a97a3;
   --empty-icon: #c3ccd4;
@@ -330,7 +357,7 @@ html[data-theme='xp'] {
   /* 侧栏：XP 任务窗格的米灰色，微透让草原壁纸透一点上来 */
   --sider-bg: rgba(236, 233, 216, 0.88);
   --sider-border: #d6d2c0;
-  --sider-blur: blur(10px);
+  --sider-blur: none;
   --sider-text: #33332a;
   --sider-faint: #9a9683;
   --sider-icon: #8a8672;
@@ -351,9 +378,18 @@ html[data-theme='xp'] {
 
   /* 主区：88% 白玻璃，草原透成淡淡绿蓝光 */
   --main-bg: rgba(255, 255, 255, 0.158);
+
+  /* 设置页：XP 对话框 —— 蓝色标题栏 + 经典米灰内容区(#ECE9D8) + 深蓝窗框 */
+  --settings-bg: #ece9d8;
+  --settings-window-max-w: 940px;
+  --settings-window-max-h: 84vh;
+  --settings-window-gap: 24px;
+  --settings-window-radius: 8px;
+  --settings-window-border: 1px solid #0f3f8f;
+  --settings-window-shadow: 0 0 0 1px #0058e6, 0 10px 36px rgba(0, 30, 90, 0.45);
   --text-primary: #232323;
-  --text-secondary: #7a8a99;
-  --text-faint: #b0bac3;
+  --text-secondary: #4f5f6f;
+  --text-faint: #657585;
   --border-subtle: #e0e4e8;
   --border-strong: #7f9db9;
   --empty-icon: #c9d2dc;
@@ -477,6 +513,21 @@ html[data-theme='xp'] .conversation-item.active {
 /* XP 标题栏上的白色标题加一点投影，更像经典标题栏文字 */
 html[data-theme='xp'] .app-title {
   text-shadow: 0 1px 2px rgba(0, 40, 120, 0.7);
+}
+
+/* XP 设置窗口：标题投影 + 经典红色渐变关闭钮 */
+html[data-theme='xp'] .settings-title {
+  text-shadow: 0 1px 2px rgba(0, 40, 120, 0.7);
+}
+html[data-theme='xp'] .settings-close {
+  background: linear-gradient(180deg, #f0a193 0%, #e07a62 45%, #cf5a3e 55%, #c04527 100%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 3px;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 20, 60, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+html[data-theme='xp'] .settings-close:hover {
+  background: linear-gradient(180deg, #f8b8ab 0%, #ec8d75 45%, #db6a4e 55%, #cd5232 100%);
 }
 
 /* 选中态下操作图标也要换成亮色，压在渐变/深色底上才看得清 */

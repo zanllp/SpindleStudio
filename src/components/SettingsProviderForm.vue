@@ -85,7 +85,7 @@ async function save(patch: Parameters<typeof settingsStore.updateProvider>[1]) {
 
 .form-type {
   font-size: 12px;
-  color: var(--text-faint);
+  color: var(--text-secondary);
 }
 
 .form-item {

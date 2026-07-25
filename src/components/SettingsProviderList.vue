@@ -76,6 +76,7 @@ async function handleAdd() {
   flex-shrink: 0;
   padding: 12px;
   border-right: 1px solid var(--sider-border);
+  background: var(--sider-bg);
   overflow-y: auto;
 }
 

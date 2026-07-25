@@ -1,55 +1,57 @@
 <template>
   <div v-if="settingsStore.settingsOpen" class="settings-overlay" @keydown.esc="close">
-    <div class="settings-header">
-      <span class="settings-title">{{ $t('settings.title') }}</span>
-      <button class="settings-close" :title="$t('common.close')" @click="close">
-        <CloseOutlined />
-      </button>
-    </div>
-    <div class="settings-body">
-      <nav class="settings-nav">
-        <div
-          v-for="item in NAV_ITEMS"
-          :key="item.key"
-          class="nav-item"
-          :class="{ active: section === item.key }"
-          @click="section = item.key"
-        >
-          <component :is="item.icon" class="nav-icon" />
-          <span>{{ $t(`settings.nav.${item.key}`) }}</span>
-        </div>
-      </nav>
-      <div class="settings-content">
-        <div v-if="section === 'general'" class="general-form">
-          <div class="form-title">{{ $t('settings.nav.general') }}</div>
-          <div class="form-item">
-            <div class="form-label">{{ $t('settings.general.language') }}</div>
-            <a-radio-group
-              :value="localePreference"
-              button-style="solid"
-              @change="(e: any) => setLocale(e.target.value)"
-            >
-              <a-radio-button value="auto">{{ $t('settings.general.auto') }}</a-radio-button>
-              <a-radio-button value="zh-CN">{{ $t('settings.general.zhCN') }}</a-radio-button>
-              <a-radio-button value="en-US">{{ $t('settings.general.enUS') }}</a-radio-button>
-            </a-radio-group>
+    <div class="settings-window">
+      <div class="settings-header">
+        <span class="settings-title">{{ $t('settings.title') }}</span>
+        <button class="settings-close" :title="$t('common.close')" @click="close">
+          <CloseOutlined />
+        </button>
+      </div>
+      <div class="settings-body">
+        <nav class="settings-nav">
+          <div
+            v-for="item in NAV_ITEMS"
+            :key="item.key"
+            class="nav-item"
+            :class="{ active: section === item.key }"
+            @click="section = item.key"
+          >
+            <component :is="item.icon" class="nav-icon" />
+            <span>{{ $t(`settings.nav.${item.key}`) }}</span>
           </div>
-        </div>
-        <template v-else-if="section === 'providers'">
-          <SettingsProviderList :selected-id="editingProviderId" @select="editingProviderId = $event" />
-          <SettingsProviderForm v-if="editingProviderId" :key="editingProviderId" :provider-id="editingProviderId" />
-          <div v-else class="form-empty">{{ $t('settings.providers.empty') }}</div>
-        </template>
-        <div v-else class="ai-chat-form">
-          <div class="form-title">{{ $t('settings.aiChat.title') }}</div>
-          <p class="form-tip">{{ $t('settings.aiChat.tip') }}</p>
-          <div class="form-item">
-            <div class="form-label">{{ $t('settings.aiChat.apiKey') }}</div>
-            <a-input-password v-model:value="aiChatDraft.apiKey" placeholder="sk-..." @blur="saveAiChat" />
+        </nav>
+        <div class="settings-content">
+          <div v-if="section === 'general'" class="general-form">
+            <div class="form-title">{{ $t('settings.nav.general') }}</div>
+            <div class="form-item">
+              <div class="form-label">{{ $t('settings.general.language') }}</div>
+              <a-radio-group
+                :value="localePreference"
+                button-style="solid"
+                @change="(e: any) => setLocale(e.target.value)"
+              >
+                <a-radio-button value="auto">{{ $t('settings.general.auto') }}</a-radio-button>
+                <a-radio-button value="zh-CN">{{ $t('settings.general.zhCN') }}</a-radio-button>
+                <a-radio-button value="en-US">{{ $t('settings.general.enUS') }}</a-radio-button>
+              </a-radio-group>
+            </div>
           </div>
-          <div class="form-item">
-            <div class="form-label">{{ $t('settings.aiChat.baseUrl') }}</div>
-            <a-input v-model:value="aiChatDraft.baseUrl" placeholder="https://api.openai.com/v1" @blur="saveAiChat" />
+          <template v-else-if="section === 'providers'">
+            <SettingsProviderList :selected-id="editingProviderId" @select="editingProviderId = $event" />
+            <SettingsProviderForm v-if="editingProviderId" :key="editingProviderId" :provider-id="editingProviderId" />
+            <div v-else class="form-empty">{{ $t('settings.providers.empty') }}</div>
+          </template>
+          <div v-else class="ai-chat-form">
+            <div class="form-title">{{ $t('settings.aiChat.title') }}</div>
+            <p class="form-tip">{{ $t('settings.aiChat.tip') }}</p>
+            <div class="form-item">
+              <div class="form-label">{{ $t('settings.aiChat.apiKey') }}</div>
+              <a-input-password v-model:value="aiChatDraft.apiKey" placeholder="sk-..." @blur="saveAiChat" />
+            </div>
+            <div class="form-item">
+              <div class="form-label">{{ $t('settings.aiChat.baseUrl') }}</div>
+              <a-input v-model:value="aiChatDraft.baseUrl" placeholder="https://api.openai.com/v1" @blur="saveAiChat" />
+            </div>
           </div>
         </div>
       </div>
@@ -114,12 +116,29 @@ async function saveAiChat() {
   inset: 0;
   z-index: 1000;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--settings-window-gap, 0);
   background: var(--page-bg);
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
   color: var(--text-primary);
+}
+
+/* 玻璃/复古主题下设置是一扇悬浮的「系统窗口」，尺寸/圆角/边框/阴影全由主题变量给出；
+   ChatGPT 主题这些变量为空 → 退化为全屏页面，与原来一致 */
+.settings-window {
+  width: 100%;
+  max-width: var(--settings-window-max-w, none);
+  height: 100%;
+  max-height: var(--settings-window-max-h, none);
+  display: flex;
+  flex-direction: column;
+  border: var(--settings-window-border, none);
+  border-radius: var(--settings-window-radius, 0);
+  box-shadow: var(--settings-window-shadow, none);
+  overflow: hidden;
 }
 
 .settings-header {
@@ -136,6 +155,7 @@ async function saveAiChat() {
 .settings-title {
   font-size: 15px;
   font-weight: 600;
+  color: var(--header-text);
 }
 
 .settings-close {
@@ -205,6 +225,9 @@ async function saveAiChat() {
   display: flex;
   min-width: 0;
   min-height: 0;
+  /* 内容窗格底色（--settings-bg，随主题调性）：表单文字均为深色，必须落在浅底上；
+     不能复用 --main-bg —— 聊天主区靠它透壁纸 */
+  background: var(--settings-bg);
 }
 
 .form-empty {
