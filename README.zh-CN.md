@@ -12,10 +12,12 @@ MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面�
 
 - 🧵 **多想法并行**：同一个会话内可同时推进多个生图请求，不必排队等待上一条完成
 - 💬 **对话式迭代**：每条消息都是一条独立线索，可在任意历史结果上继续生成、引用旧图、回填提示词
-- 🖼️ **硬核生图**：只做文生图 / 图生图，把这条路径做到极致
+- 🖼️ **零调参**：不关心步数、LoRA、采样器那些传统生图细节，只做文生图 / 图生图，把这条路径做到极致
 - 🔌 **多供应商**：一次配置多家 provider，按需切换或并发调用
 
 如果你用过 Cherry Studio 这类综合客户端，可以把 MuseStudio 理解为 **「只聊图片」的生图特化版**。
+
+![MuseStudio —— 同一会话内多线程生图](docs/screenshots/theme-chatgpt.webp)
 
 ## 功能
 
@@ -25,17 +27,75 @@ MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面�
 - 🔢 一次生成多张（1–8 张），每张独立任务，逐张渐进上屏
 - ➕ 在任意历史结果上「再生成一张」，直接追加变体
 - ✏️ 提示词原地编辑重发、回填输入框、删除、失败重试
+- 🎛️ 生成参数：auto + 13 种画面比例预设，1K / 2K / 4K 分辨率（4K 限宽屏比例）
+- 🏷️ 生成图写入 EXIF 元数据：提示词、尺寸、模型，SD WebUI 兼容格式，可被 Infinite Image Browsing 等工具直接读取
+- 📈 上传历史按使用频率排序，常用参考图一键复用
 - 💾 会话本地落盘持久化，刷新 / 重启后可恢复（包括未完成任务的续跑）
 - 🎨 四套主题：ChatGPT / Frutiger Aero / Windows Vista / Windows XP
+- 🌐 中英文界面，跟随系统或手动切换
 - ⚙️ API Key 在应用内设置，不需要改配置文件
 
-生成服务支持多家供应商（设置页统一配置，左下角齿轮进入）：API Mart（默认，gpt-image-2）、OpenRouter、OpenAI 官方、自定义 OpenAI 兼容。
+## 实际使用
+
+**Threads 式并行生图**——连续发多条提示词不用等，各自独立任务、完成即上屏：
+
+![多条提示词并行——第一张已出图，下一张仍在生成](docs/screenshots/feat-inflight2.webp)
+
+**图生图**——点任意历史结果上的链接按钮（或上传 / 粘贴本地图片），描述想要的改动：
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/feat-i2i-input.webp" alt="引用历史结果后，输入框切换为图生图模式" /></td>
+    <td><img src="docs/screenshots/feat-i2i-result.webp" alt="基于参考图把雨夜咖啡馆重绘成飘雪版本" /></td>
+  </tr>
+</table>
+
+**一条消息最多 8 张**，逐张渐进上屏——结果旁的 ⊕ 一键追加变体；悬停消息可回填提示词 / 编辑重发 / 删除：
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/feat-batch.webp" alt="一条提示词产出四张抹茶拿铁" /></td>
+    <td><img src="docs/screenshots/feat-actions.webp" alt="每条消息支持回填、编辑重发、删除" /></td>
+  </tr>
+</table>
+
+**参数随手调**——13 种画面比例预设 + 1K / 2K / 4K 分辨率；**每张图都记得自己的来历**——提示词、模型、尺寸等写入 SD WebUI 兼容 EXIF：
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/feat-params.webp" alt="画面比例预设与分辨率选项" /></td>
+    <td><img src="docs/screenshots/feat-exif.webp" alt="每张图都保存完整生成参数" /></td>
+  </tr>
+</table>
+
+## 主题
+
+四套内置主题，右上角下拉随时切换：
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/theme-chatgpt.webp" alt="ChatGPT 主题" /></td>
+    <td><img src="docs/screenshots/theme-frutiger-aero.webp" alt="Frutiger Aero 主题" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-vista.webp" alt="Windows Vista 主题" /></td>
+    <td><img src="docs/screenshots/theme-xp.webp" alt="Windows XP 主题" /></td>
+  </tr>
+</table>
+
+## 模型供应商
+
+多家生图后端可以在设置页（左下角齿轮）并行配置——每家独立的 Key、地址和模型列表——使用时在输入框旁按消息切换。同步（OpenAI 兼容 images）与异步任务式 API 均可接入，也支持从界面添加自定义供应商。默认模型为 `gpt-image-2`。
+
+<img src="docs/screenshots/settings-providers.webp" alt="供应商设置" width="720" />
 
 ## 快速开始
 
+**下载**：预构建的 Windows 安装包 / 便携版见 [GitHub Releases](https://github.com/zanllp/MuseStudio/releases)。从源码运行：
+
 ```bash
-npm install
-npm run dev        # Web 开发模式: http://localhost:5173
+yarn
+yarn dev           # Web 开发模式: http://localhost:5173
 ```
 
 首次启动会弹出设置窗口，填入 API Key 即可开始生图。
@@ -43,17 +103,17 @@ npm run dev        # Web 开发模式: http://localhost:5173
 ### 桌面（Electron）
 
 ```bash
-npm run dev:electron   # 开发模式（Vite + 后端 + Electron）
-npm run build          # 构建前端 + 后端
-npm run electron       # 以桌面窗口运行（内嵌后端）
-npm run dist:win       # 打包 Windows 安装包 / 便携版 (electron-builder)
+yarn dev:electron    # 开发模式（Vite + 后端 + Electron）
+yarn build           # 构建前端 + 后端
+yarn electron        # 以桌面窗口运行（内嵌后端）
+yarn dist:win        # 打包 Windows 安装包 / 便携版 (electron-builder)
 ```
 
 ### 纯 Node 运行（无 Electron）
 
 ```bash
-npm run build
-npm start            # http://localhost:3210
+yarn build
+yarn start           # http://localhost:3210
 ```
 
 ## 配置
@@ -78,7 +138,11 @@ npm start            # http://localhost:3210
 C:\Users\me\repo\MuseStudio
 ```
 
-指向本仓库目录后，打包版与开发模式共用同一份会话 / 图片 / 配置。纯 Node 运行（`npm start`）用 `DATA_DIR` 环境变量即可。如需一次性导入而不是共享，用 `npm run migrate -- <源目录> [目标目录]`（幂等增量复制会话与图片）。
+指向本仓库目录后，打包版与开发模式共用同一份会话 / 图片 / 配置。纯 Node 运行（`yarn start`）用 `DATA_DIR` 环境变量即可。如需一次性导入而不是共享，用 `yarn migrate <源目录> [目标目录]`（幂等增量复制会话与图片）。
+
+## 技术栈
+
+Vue 3 · Vite · TypeScript · Pinia · Ant Design Vue · Express · socket.io（实时进度）· sharp（EXIF 写入）· Electron
 
 ## License
 

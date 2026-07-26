@@ -17,6 +17,8 @@ MuseStudio is not a replacement for Stable Diffusion WebUI / ComfyUI, nor a do-e
 
 If you have used all-in-one clients like Cherry Studio, think of MuseStudio as the **image-generation-specialized alternative**.
 
+![MuseStudio — multi-thread image generation in one conversation](docs/screenshots/theme-chatgpt.webp)
+
 ## Features
 
 - **Multi-thread generation in one session**: multiple in-flight requests progress in parallel, Threads-style
@@ -25,17 +27,75 @@ If you have used all-in-one clients like Cherry Studio, think of MuseStudio as t
 - Batch generation (1–8 images) with progressive per-image rendering
 - "Generate one more" on any previous result to append a variant instantly
 - In-place prompt edit & resend, backfill to input box, delete, retry
+- Generation controls: auto + 13 aspect-ratio presets, 1K / 2K / 4K resolution (4K widescreen-only)
+- EXIF metadata baked into every image — prompt, dimensions and model in SD WebUI–compatible format, ready for tools like Infinite Image Browsing
+- Upload history sorted by usage frequency for one-click reuse of reference images
 - Local disk persistence — conversations and in-flight tasks survive refresh / restart
 - Four themes: ChatGPT / Frutiger Aero / Windows Vista / Windows XP
+- English & 中文 UI — follow system or set manually
 - In-app settings for API key & base URL
 
-Talks to an OpenAI-compatible images API (`gpt-image-2` by default); key and base URL are configurable in Settings.
+## In action
+
+**Threads-style parallel generation** — fire off several prompts at once; each runs as its own task and lands whenever it's ready:
+
+![Several prompts in flight — the first result is already in while the next is still generating](docs/screenshots/feat-inflight2.webp)
+
+**Image-to-image** — hit the link button on any previous result (or upload / paste your own image) and describe the change:
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/feat-i2i-input.webp" alt="Reference an earlier result — the input switches to image-to-image mode" /></td>
+    <td><img src="docs/screenshots/feat-i2i-result.webp" alt="The rainy café redrawn in gentle snowfall from the reference" /></td>
+  </tr>
+</table>
+
+**Batch up to 8 per message**, each rendering in progressively — and the ⊕ button on any result appends one more variant; hovering a message reveals backfill / edit & resend / delete:
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/feat-batch.webp" alt="Four matcha latte variants from a single prompt" /></td>
+    <td><img src="docs/screenshots/feat-actions.webp" alt="Backfill, edit & resend and delete on every message" /></td>
+  </tr>
+</table>
+
+**Dial in the output** — 13 aspect-ratio presets with 1K / 2K / 4K resolution; **every image remembers how it was made** — prompt, model, dimensions and more, in SD WebUI–compatible EXIF:
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/feat-params.webp" alt="Aspect-ratio presets and resolution controls" /></td>
+    <td><img src="docs/screenshots/feat-exif.webp" alt="Generation parameters stored in every image" /></td>
+  </tr>
+</table>
+
+## Themes
+
+Four built-in themes, switchable anytime from the top-right dropdown:
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/theme-chatgpt.webp" alt="ChatGPT theme" /></td>
+    <td><img src="docs/screenshots/theme-frutiger-aero.webp" alt="Frutiger Aero theme" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-vista.webp" alt="Windows Vista theme" /></td>
+    <td><img src="docs/screenshots/theme-xp.webp" alt="Windows XP theme" /></td>
+  </tr>
+</table>
+
+## Model providers
+
+Multiple backends can live side by side in Settings — each with its own API key, base URL and model list — and the active provider/model is picked per message from the input box. Both sync (OpenAI-compatible images) and async task-style APIs are supported, and custom providers can be added from the UI. Ships with `gpt-image-2` as the default model.
+
+<img src="docs/screenshots/settings-providers.webp" alt="Provider settings" width="720" />
 
 ## Getting started
 
+**Download**: prebuilt Windows installer / portable from [GitHub Releases](https://github.com/zanllp/MuseStudio/releases). To run from source:
+
 ```bash
-npm install
-npm run dev          # web dev at http://localhost:5173
+yarn
+yarn dev             # web dev at http://localhost:5173
 ```
 
 Fill in your API key in the settings dialog on first launch.
@@ -43,17 +103,17 @@ Fill in your API key in the settings dialog on first launch.
 ### Desktop (Electron)
 
 ```bash
-npm run dev:electron   # dev mode (Vite + backend + Electron)
-npm run build          # build frontend + backend
-npm run electron       # run as desktop window (embedded backend)
-npm run dist:win       # package Windows installer / portable (electron-builder)
+yarn dev:electron    # dev mode (Vite + backend + Electron)
+yarn build           # build frontend + backend
+yarn electron        # run as desktop window (embedded backend)
+yarn dist:win        # package Windows installer / portable (electron-builder)
 ```
 
 ### Headless Node (no Electron)
 
 ```bash
-npm run build
-npm start            # http://localhost:3210
+yarn build
+yarn start           # http://localhost:3210
 ```
 
 ## Configuration
@@ -78,7 +138,11 @@ A packaged build can point its data directory at any existing folder (IIB `sd_we
 C:\Users\me\repo\MuseStudio
 ```
 
-After pointing it at this repo, the packaged build and dev mode share the same conversations / images / config. For headless Node mode (`npm start`), use the `DATA_DIR` env var. For a one-time import instead of sharing: `npm run migrate -- <sourceDir> [destDir]`.
+After pointing it at this repo, the packaged build and dev mode share the same conversations / images / config. For headless Node mode (`yarn start`), use the `DATA_DIR` env var. For a one-time import instead of sharing: `yarn migrate <sourceDir> [destDir]`.
+
+## Tech stack
+
+Vue 3 · Vite · TypeScript · Pinia · Ant Design Vue · Express · socket.io (real-time progress) · sharp (EXIF) · Electron
 
 ## License
 
