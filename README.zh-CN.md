@@ -37,6 +37,7 @@ MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面�
 - 🏷️ 生成图写入 EXIF 元数据：提示词、尺寸、模型，SD WebUI 兼容格式，可被 [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing) 等工具直接读取
 - 📈 上传历史按使用频率排序，常用参考图一键复用
 - 💾 会话本地落盘持久化，刷新 / 重启后可恢复（包括未完成任务的续跑）
+- 🪟 多窗口实时同步：桌面多窗口 + Web 页面同时使用，一处操作处处更新，主题按窗口独立
 - 🎨 四套主题：ChatGPT / Frutiger Aero / Windows Vista / Windows XP
 - 🌐 中英文界面，跟随系统或手动切换
 - ⚙️ API Key 在应用内设置，不需要改配置文件
@@ -73,6 +74,12 @@ MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面�
     <td><img src="docs/screenshots/feat-exif.webp" alt="每张图都保存完整生成参数" /></td>
   </tr>
 </table>
+
+## 多窗口并行，实时同步
+
+想开几个窗口就开几个——桌面端从侧栏「新建窗口」多开，同时还能在浏览器打开 `http://localhost:3210`——所有窗口实时同步：在任意窗口发提示词，其余窗口同步出图；新建、编辑、删除会话即刻更新到每个窗口。主题按窗口独立，浏览器里跑 Windows XP、应用窗口保持 ChatGPT 互不干扰。
+
+![桌面窗口与浏览器并排打开同一会话、实时同步——各自使用不同主题](docs/screenshots/feat-multiwindow.webp)
 
 ## 主题
 

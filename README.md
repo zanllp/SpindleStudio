@@ -37,6 +37,7 @@ If you have used all-in-one clients like Cherry Studio, think of MuseStudio as t
 - EXIF metadata baked into every image — prompt, dimensions and model in SD WebUI–compatible format, ready for tools like [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing)
 - Upload history sorted by usage frequency for one-click reuse of reference images
 - Local disk persistence — conversations and in-flight tasks survive refresh / restart
+- Multi-window real-time sync — desktop windows and the web UI side by side, everything updates everywhere instantly, per-window themes
 - Four themes: ChatGPT / Frutiger Aero / Windows Vista / Windows XP
 - English & 中文 UI — follow system or set manually
 - In-app settings for API key & base URL
@@ -73,6 +74,12 @@ If you have used all-in-one clients like Cherry Studio, think of MuseStudio as t
     <td><img src="docs/screenshots/feat-exif.webp" alt="Generation parameters stored in every image" /></td>
   </tr>
 </table>
+
+## Multi-window, always in sync
+
+Open as many windows as you like — extra desktop windows from the sidebar (**New Window**), plus the same app in the browser at `http://localhost:3210` — and every window stays in real-time sync. Send a prompt in one and watch the images land in all the others; new conversations, edits and deletions appear everywhere instantly. Theme is per window, so the browser can run Windows XP while the app stays ChatGPT.
+
+![Desktop window and browser side by side on the same conversation, live-synced — each with its own theme](docs/screenshots/feat-multiwindow.webp)
 
 ## Themes
 
