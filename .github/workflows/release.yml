@@ -50,7 +50,9 @@ jobs:
 
       - name: Package macOS
         if: matrix.os == 'macos-latest'
-        run: npx electron-builder --mac dmg zip --publish never
+        # No target list on the CLI — it would override package.json's
+        # mac.target (incl. the universal arch) with host-arch defaults
+        run: npx electron-builder --mac --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
