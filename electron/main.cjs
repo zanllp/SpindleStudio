@@ -55,18 +55,19 @@ process.on('unhandledRejection', fatal)
 
 const DEV_URL = process.env.ELECTRON_START_URL || ''
 
-function readServerPort() {
-  try {
-    const port = parseInt(require('fs').readFileSync(require('path').join(__dirname, '..', '.server-port'), 'utf-8').trim(), 10)
-    if (port > 0 && port < 65536) return port
-  } catch {
-    // .server-port not written yet — fall back to default
-  }
-  return Number(process.env.PORT) || 3210
-}
+// Resolved once the embedded server reports the port it actually bound
+// (auto-retry may move it off the default 3210 when occupied).
+let BASE_URL = DEV_URL
 
-const SERVER_PORT = readServerPort()
-const BASE_URL = DEV_URL || `http://localhost:${SERVER_PORT}`
+async function resolveBaseUrl() {
+  if (DEV_URL) return DEV_URL
+  const deadline = Date.now() + 20000
+  while (!process.env.MUSESTUDIO_ACTUAL_PORT) {
+    if (Date.now() > deadline) throw new Error('embedded server did not report its port in time')
+    await new Promise(r => setTimeout(r, 100))
+  }
+  return `http://localhost:${process.env.MUSESTUDIO_ACTUAL_PORT}`
+}
 
 // Shared BrowserWindow options — also applied to child windows opened via
 // window.open() (multi-window: one conversation per window, all talking to the
@@ -288,7 +289,8 @@ app.whenReady().then(async () => {
   try {
     if (!DEV_URL) {
       await startServer()
-      await waitForServer(`http://localhost:${SERVER_PORT}/api/config`)
+      BASE_URL = await resolveBaseUrl()
+      await waitForServer(`${BASE_URL}/api/config`)
     }
     setupMenu()
     createWindow()

@@ -702,9 +702,16 @@ app.get('*', (req, res, next) => {
     }
   }
 
-  // Persist the actual port so Vite / Electron can discover it
-  await fs.writeFile(PORT_FILE, String(actualPort))
+  // Persist the actual port so Vite (wait-on / vite.config.ts) can discover it.
+  // Skipped under Electron: the cwd may be read-only there (/ on macOS when
+  // launched from Finder) and the port is handed over in-process instead.
+  if (!process.versions.electron) {
+    await fs.writeFile(PORT_FILE, String(actualPort))
+  }
   process.env.PORT = String(actualPort) // so tsx watch restarts reuse the same port
+  // In-process handoff for the Electron main process (auto-retry may have moved
+  // us off the default port — the window must load the ACTUAL one)
+  process.env.MUSESTUDIO_ACTUAL_PORT = String(actualPort)
 
   console.log(`MuseStudio server: http://localhost:${actualPort}`)
   console.log(`Data directory: ${DATA_DIR}`)
