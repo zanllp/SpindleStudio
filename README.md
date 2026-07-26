@@ -6,6 +6,8 @@ English · [中文](README.zh-CN.md)
 
 A lightweight, API-first image generation studio. Like Threads, it lets you advance multiple ideas in parallel within a single conversation — no need to wait for one image to finish before sending the next request, referencing an old image, or spawning a variant from any previous result. Built for users who have moved past the "tweak every parameter" phase and just want to iterate on ideas quickly through conversation.
 
+Pairs perfectly with [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing): every image MuseStudio generates carries SD WebUI–compatible EXIF metadata, so your results drop straight into IIB for blazing-fast browsing, searching and tagging.
+
 ## What it is
 
 MuseStudio is not a replacement for Stable Diffusion WebUI / ComfyUI, nor a do-everything AI client. It is deliberately focused:
@@ -28,7 +30,7 @@ If you have used all-in-one clients like Cherry Studio, think of MuseStudio as t
 - "Generate one more" on any previous result to append a variant instantly
 - In-place prompt edit & resend, backfill to input box, delete, retry
 - Generation controls: auto + 13 aspect-ratio presets, 1K / 2K / 4K resolution (4K widescreen-only)
-- EXIF metadata baked into every image — prompt, dimensions and model in SD WebUI–compatible format, ready for tools like Infinite Image Browsing
+- EXIF metadata baked into every image — prompt, dimensions and model in SD WebUI–compatible format, ready for tools like [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing)
 - Upload history sorted by usage frequency for one-click reuse of reference images
 - Local disk persistence — conversations and in-flight tasks survive refresh / restart
 - Four themes: ChatGPT / Frutiger Aero / Windows Vista / Windows XP

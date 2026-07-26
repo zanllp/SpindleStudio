@@ -6,6 +6,8 @@
 
 一个轻量级的纯 API 生图工作台。像 Threads 一样，在同一个会话里并发推进多个想法——不需要等上一张图跑完，就能继续发新的生图请求、引用旧图、或在任意历史结果上追加变体。适合已经跨过「调参阶段」、只想把注意力放回创意本身的用户。
 
+与 [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing) 搭配使用效果更佳：生成的每张图都自带 SD WebUI 兼容 EXIF，可直接被 IIB 索引、搜索和打标。
+
 ## 它是什么
 
 MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面面俱到的通用 AI 客户端。它的定位更纯粹：
@@ -28,7 +30,7 @@ MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面�
 - ➕ 在任意历史结果上「再生成一张」，直接追加变体
 - ✏️ 提示词原地编辑重发、回填输入框、删除、失败重试
 - 🎛️ 生成参数：auto + 13 种画面比例预设，1K / 2K / 4K 分辨率（4K 限宽屏比例）
-- 🏷️ 生成图写入 EXIF 元数据：提示词、尺寸、模型，SD WebUI 兼容格式，可被 Infinite Image Browsing 等工具直接读取
+- 🏷️ 生成图写入 EXIF 元数据：提示词、尺寸、模型，SD WebUI 兼容格式，可被 [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing) 等工具直接读取
 - 📈 上传历史按使用频率排序，常用参考图一键复用
 - 💾 会话本地落盘持久化，刷新 / 重启后可恢复（包括未完成任务的续跑）
 - 🎨 四套主题：ChatGPT / Frutiger Aero / Windows Vista / Windows XP
