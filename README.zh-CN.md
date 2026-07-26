@@ -10,6 +10,8 @@
 
 **下载**：预构建的 Windows 安装包 / 便携版见 [GitHub Releases](https://github.com/zanllp/MuseStudio/releases)。
 
+> **macOS 用户**：应用未签名，Gatekeeper 会提示「已损坏，无法打开」。安装后执行一次 `xattr -cr /Applications/MuseStudio.app` 清除隔离标记即可。建议下载 `.dmg`（部分解压工具会破坏 app 内的符号链接）。
+
 ## 它是什么
 
 MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面面俱到的通用 AI 客户端。它的定位更纯粹：

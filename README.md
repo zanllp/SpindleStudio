@@ -10,6 +10,8 @@ Pairs perfectly with [Infinite Image Browsing](https://github.com/zanllp/sd-webu
 
 **Download**: prebuilt Windows installer / portable from [GitHub Releases](https://github.com/zanllp/MuseStudio/releases).
 
+> **macOS users**: the app is not code-signed, so Gatekeeper reports it as *"damaged and can't be opened"*. After installing, run `xattr -cr /Applications/MuseStudio.app` once to clear the quarantine flag. Prefer the `.dmg` over the `.zip` (some unzip tools break the app's symlinks).
+
 ## What it is
 
 MuseStudio is not a replacement for Stable Diffusion WebUI / ComfyUI, nor a do-everything AI client. It is deliberately focused:
