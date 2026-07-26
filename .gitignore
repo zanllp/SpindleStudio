@@ -13,3 +13,6 @@ HANDOVER.md
 # OS files
 .DS_Store
 Thumbs.db
+
+# icon-concepts 是 AI 生成的过程稿，不入库
+assets/icon-concepts/

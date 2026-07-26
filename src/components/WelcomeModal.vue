@@ -8,41 +8,43 @@
     :footer="null"
     :width="440"
   >
-    <p class="welcome-desc">{{ $t('welcome.desc') }}</p>
+    <div class="welcome-body">
+      <p class="welcome-desc">{{ $t('welcome.desc') }}</p>
 
-    <div class="welcome-form">
-      <div class="welcome-label">{{ $t('settings.general.language') }}</div>
-      <a-select v-model:value="localePref" :options="languageOptions" style="width: 100%;" />
+      <div class="welcome-form">
+        <div class="welcome-label">{{ $t('settings.general.language') }}</div>
+        <a-select v-model:value="localePref" :options="languageOptions" style="width: 100%;" />
 
-      <div class="welcome-label" style="margin-top: 14px;">{{ $t('welcome.provider') }}</div>
-      <a-select v-model:value="providerId" :options="providerOptions" style="width: 100%;" />
-      <div class="welcome-label" style="margin-top: 14px;">{{ $t('welcome.apiKey') }}</div>
-      <a-input-password v-model:value="apiKey" placeholder="sk-..." @pressEnter="start" />
-    </div>
+        <div class="welcome-label" style="margin-top: 14px;">{{ $t('welcome.provider') }}</div>
+        <a-select v-model:value="providerId" :options="providerOptions" style="width: 100%;" />
+        <div class="welcome-label" style="margin-top: 14px;">{{ $t('welcome.apiKey') }}</div>
+        <a-input-password v-model:value="apiKey" placeholder="sk-..." @pressEnter="start" />
+      </div>
 
-    <div class="welcome-actions">
-      <AppButton size="small" @click="dismiss">{{ $t('welcome.later') }}</AppButton>
-      <AppButton size="small" @click="openFullSettings">{{ $t('welcome.fullSettings') }}</AppButton>
-      <AppButton size="small" type="primary" :loading="saving" :disabled="!apiKey.trim()" @click="start">
-        {{ $t('welcome.start') }}
-      </AppButton>
-    </div>
+      <div class="welcome-actions">
+        <AppButton size="small" @click="dismiss">{{ $t('welcome.later') }}</AppButton>
+        <AppButton size="small" @click="openFullSettings">{{ $t('welcome.fullSettings') }}</AppButton>
+        <AppButton size="small" type="primary" :loading="saving" :disabled="!apiKey.trim()" @click="start">
+          {{ $t('welcome.start') }}
+        </AppButton>
+      </div>
 
-    <a-divider style="margin: 16px 0 12px; font-size: 12px; color: var(--text-tertiary);">
-      {{ $t('welcome.orImport') }}
-    </a-divider>
+      <a-divider style="margin: 16px 0 12px; font-size: 12px; color: var(--text-tertiary);">
+        {{ $t('welcome.orImport') }}
+      </a-divider>
 
-    <div class="import-row">
-      <a-input
-        v-model:value="importDir"
-        :placeholder="$t('welcome.importPlaceholder')"
-        size="small"
-        style="flex: 1;"
-        @pressEnter="doImport"
-      />
-      <AppButton size="small" :loading="importing" :disabled="!importDir.trim()" @click="doImport">
-        {{ $t('welcome.importBtn') }}
-      </AppButton>
+      <div class="import-row">
+        <a-input
+          v-model:value="importDir"
+          :placeholder="$t('welcome.importPlaceholder')"
+          size="small"
+          style="flex: 1;"
+          @pressEnter="doImport"
+        />
+        <AppButton size="small" :loading="importing" :disabled="!importDir.trim()" @click="doImport">
+          {{ $t('welcome.importBtn') }}
+        </AppButton>
+      </div>
     </div>
   </a-modal>
 </template>
