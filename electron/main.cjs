@@ -47,7 +47,7 @@ function fatal(err) {
   } catch {
     // userData not writable — the dialog still shows the error
   }
-  dialog.showErrorBox('MuseStudio 启动失败 / Startup failed', msg)
+  dialog.showErrorBox('SpindleStudio 启动失败 / Startup failed', msg)
   app.quit()
 }
 process.on('uncaughtException', fatal)
@@ -62,11 +62,11 @@ let BASE_URL = DEV_URL
 async function resolveBaseUrl() {
   if (DEV_URL) return DEV_URL
   const deadline = Date.now() + 20000
-  while (!process.env.MUSESTUDIO_ACTUAL_PORT) {
+  while (!process.env.SPINDLESTUDIO_ACTUAL_PORT) {
     if (Date.now() > deadline) throw new Error('embedded server did not report its port in time')
     await new Promise(r => setTimeout(r, 100))
   }
-  return `http://localhost:${process.env.MUSESTUDIO_ACTUAL_PORT}`
+  return `http://localhost:${process.env.SPINDLESTUDIO_ACTUAL_PORT}`
 }
 
 // Shared BrowserWindow options — also applied to child windows opened via
@@ -285,7 +285,7 @@ function setupMenu() {
 
 app.whenReady().then(async () => {
   initLogFile()
-  console.log('=== MuseStudio starting ===')
+  console.log('=== SpindleStudio starting ===')
   try {
     if (!DEV_URL) {
       await startServer()

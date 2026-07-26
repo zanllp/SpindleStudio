@@ -1,6 +1,6 @@
-# MuseStudio
+# SpindleStudio
 
-<img src="build/icon.png" alt="MuseStudio 图标" width="256" align="right" />
+<img src="build/icon.png" alt="SpindleStudio 图标" width="256" align="right" />
 
 [English](README.md) · 中文
 
@@ -8,22 +8,22 @@
 
 与 [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing) 搭配使用效果更佳：生成的每张图都自带 SD WebUI 兼容 EXIF，可直接被 IIB 索引、搜索和打标。
 
-**下载**：预构建的 Windows 安装包 / 便携版见 [GitHub Releases](https://github.com/zanllp/MuseStudio/releases)。
+**下载**：预构建的 Windows 安装包 / 便携版见 [GitHub Releases](https://github.com/zanllp/SpindleStudio/releases)。
 
-> **macOS 用户**：应用未签名，Gatekeeper 会提示「已损坏，无法打开」。安装后执行一次 `xattr -cr /Applications/MuseStudio.app` 清除隔离标记即可。建议下载 `.dmg`（部分解压工具会破坏 app 内的符号链接）。
+> **macOS 用户**：应用未签名，Gatekeeper 会提示「已损坏，无法打开」。安装后执行一次 `xattr -cr /Applications/SpindleStudio.app` 清除隔离标记即可。建议下载 `.dmg`（部分解压工具会破坏 app 内的符号链接）。
 
 ## 它是什么
 
-MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面面俱到的通用 AI 客户端。它的定位更纯粹：
+SpindleStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面面俱到的通用 AI 客户端。它的定位更纯粹：
 
 - 🧵 **多想法并行**：同一个会话内可同时推进多个生图请求，不必排队等待上一条完成
 - 💬 **对话式迭代**：每条消息都是一条独立线索，可在任意历史结果上继续生成、引用旧图、回填提示词
 - 🖼️ **零调参**：不关心步数、LoRA、采样器那些传统生图细节，只做文生图 / 图生图，把这条路径做到极致
 - 🔌 **多供应商**：一次配置多家 provider，按需切换或并发调用
 
-如果你用过 Cherry Studio 这类综合客户端，可以把 MuseStudio 理解为 **「只聊图片」的生图特化版**。
+如果你用过 Cherry Studio 这类综合客户端，可以把 SpindleStudio 理解为 **「只聊图片」的生图特化版**。
 
-![MuseStudio —— 同一会话内多线程生图](docs/screenshots/theme-chatgpt.webp)
+![SpindleStudio —— 同一会话内多线程生图](docs/screenshots/theme-chatgpt.webp)
 
 ## 功能
 
@@ -148,7 +148,7 @@ yarn start           # http://localhost:3210
 打包版可以把数据目录指向任意已有目录（类似 IIB 的 `sd_webui_dir`），优先级：`DATA_DIR` 环境变量 > exe 同目录 `data-dir.txt` > userData 下 `data-dir.txt` > 默认。文件内容就是一行绝对路径，例如：
 
 ```
-C:\Users\me\repo\MuseStudio
+C:\Users\me\repo\SpindleStudio
 ```
 
 指向本仓库目录后，打包版与开发模式共用同一份会话 / 图片 / 配置。纯 Node 运行（`yarn start`）用 `DATA_DIR` 环境变量即可。如需一次性导入而不是共享，用 `yarn migrate <源目录> [目标目录]`（幂等增量复制会话与图片）。

@@ -1,5 +1,5 @@
 {
-  "name": "musestudio",
+  "name": "spindlestudio",
   "version": "1.0.2",
   "description": "A lightweight, Threads-style image generation studio for parallel ideas",
   "main": "electron/main.cjs",
@@ -7,12 +7,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zanllp/MuseStudio.git"
+    "url": "https://github.com/zanllp/SpindleStudio.git"
   },
   "bugs": {
-    "url": "https://github.com/zanllp/MuseStudio/issues"
+    "url": "https://github.com/zanllp/SpindleStudio/issues"
   },
-  "homepage": "https://github.com/zanllp/MuseStudio#readme",
+  "homepage": "https://github.com/zanllp/SpindleStudio#readme",
   "keywords": [
     "ai-image-generation",
     "multi-provider",
@@ -69,8 +69,8 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.zanllp.musestudio",
-    "productName": "MuseStudio",
+    "appId": "com.zanllp.spindlestudio",
+    "productName": "SpindleStudio",
     "directories": {
       "output": "release"
     },

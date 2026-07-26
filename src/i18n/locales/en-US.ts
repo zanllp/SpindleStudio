@@ -160,7 +160,7 @@ User messages:
     },
   },
   welcome: {
-    title: 'Welcome to MuseStudio',
+    title: 'Welcome to SpindleStudio',
     desc: 'Choose a provider and fill in your API Key to start generating. You can also add or modify providers later via the Settings gear at the bottom left.',
     provider: 'Provider',
     apiKey: 'API Key',

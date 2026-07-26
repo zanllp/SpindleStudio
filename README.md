@@ -1,29 +1,29 @@
-# MuseStudio
+# SpindleStudio
 
-<img src="build/icon.png" alt="MuseStudio icon" width="256" align="right" />
+<img src="build/icon.png" alt="SpindleStudio icon" width="256" align="right" />
 
 English · [中文](README.zh-CN.md)
 
 A lightweight, API-first image generation studio. Like Threads, it lets you advance multiple ideas in parallel within a single conversation — no need to wait for one image to finish before sending the next request, referencing an old image, or spawning a variant from any previous result. Built for users who have moved past the "tweak every parameter" phase and just want to iterate on ideas quickly through conversation.
 
-Pairs perfectly with [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing): every image MuseStudio generates carries SD WebUI–compatible EXIF metadata, so your results drop straight into IIB for blazing-fast browsing, searching and tagging.
+Pairs perfectly with [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing): every image SpindleStudio generates carries SD WebUI–compatible EXIF metadata, so your results drop straight into IIB for blazing-fast browsing, searching and tagging.
 
-**Download**: prebuilt Windows installer / portable from [GitHub Releases](https://github.com/zanllp/MuseStudio/releases).
+**Download**: prebuilt Windows installer / portable from [GitHub Releases](https://github.com/zanllp/SpindleStudio/releases).
 
-> **macOS users**: the app is not code-signed, so Gatekeeper reports it as *"damaged and can't be opened"*. After installing, run `xattr -cr /Applications/MuseStudio.app` once to clear the quarantine flag. Prefer the `.dmg` over the `.zip` (some unzip tools break the app's symlinks).
+> **macOS users**: the app is not code-signed, so Gatekeeper reports it as *"damaged and can't be opened"*. After installing, run `xattr -cr /Applications/SpindleStudio.app` once to clear the quarantine flag. Prefer the `.dmg` over the `.zip` (some unzip tools break the app's symlinks).
 
 ## What it is
 
-MuseStudio is not a replacement for Stable Diffusion WebUI / ComfyUI, nor a do-everything AI client. It is deliberately focused:
+SpindleStudio is not a replacement for Stable Diffusion WebUI / ComfyUI, nor a do-everything AI client. It is deliberately focused:
 
 - 🧵 **Multi-idea parallelism**: multiple in-flight generation requests can progress inside the same session without waiting in line
 - 💬 **Conversational iteration**: every message is an independent thread; continue generating from, reference, or backfill any previous result
 - 🖼️ **Image-generation-first**: text-to-image and image-to-image, done well
 - 🔌 **Multi-provider**: configure multiple backends and switch or call them as needed
 
-If you have used all-in-one clients like Cherry Studio, think of MuseStudio as the **image-generation-specialized alternative**.
+If you have used all-in-one clients like Cherry Studio, think of SpindleStudio as the **image-generation-specialized alternative**.
 
-![MuseStudio — multi-thread image generation in one conversation](docs/screenshots/theme-chatgpt.webp)
+![SpindleStudio — multi-thread image generation in one conversation](docs/screenshots/theme-chatgpt.webp)
 
 ## Features
 
@@ -148,7 +148,7 @@ Data (conversations, generated images, uploads, config) lives in the project dir
 A packaged build can point its data directory at any existing folder (IIB `sd_webui_dir`-style). Precedence: `DATA_DIR` env var > `data-dir.txt` next to the exe > `data-dir.txt` in userData > default. The file contains one absolute path, e.g.:
 
 ```
-C:\Users\me\repo\MuseStudio
+C:\Users\me\repo\SpindleStudio
 ```
 
 After pointing it at this repo, the packaged build and dev mode share the same conversations / images / config. For headless Node mode (`yarn start`), use the `DATA_DIR` env var. For a one-time import instead of sharing: `yarn migrate <sourceDir> [destDir]`.

@@ -711,9 +711,9 @@ app.get('*', (req, res, next) => {
   process.env.PORT = String(actualPort) // so tsx watch restarts reuse the same port
   // In-process handoff for the Electron main process (auto-retry may have moved
   // us off the default port — the window must load the ACTUAL one)
-  process.env.MUSESTUDIO_ACTUAL_PORT = String(actualPort)
+  process.env.SPINDLESTUDIO_ACTUAL_PORT = String(actualPort)
 
-  console.log(`MuseStudio server: http://localhost:${actualPort}`)
+  console.log(`SpindleStudio server: http://localhost:${actualPort}`)
   console.log(`Data directory: ${DATA_DIR}`)
   const ready = getConfig().providers.filter(p => p.enabled && p.apiKey).map(p => p.name)
   console.log(`Image providers: ${ready.length ? ready.join(', ') : 'NOT configured (open Settings in the app)'}`)
