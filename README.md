@@ -8,6 +8,8 @@ A lightweight, API-first image generation studio. Like Threads, it lets you adva
 
 Pairs perfectly with [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing): every image MuseStudio generates carries SD WebUI–compatible EXIF metadata, so your results drop straight into IIB for blazing-fast browsing, searching and tagging.
 
+**Download**: prebuilt Windows installer / portable from [GitHub Releases](https://github.com/zanllp/MuseStudio/releases).
+
 ## What it is
 
 MuseStudio is not a replacement for Stable Diffusion WebUI / ComfyUI, nor a do-everything AI client. It is deliberately focused:
@@ -93,7 +95,7 @@ Multiple backends can live side by side in Settings — each with its own API ke
 
 ## Getting started
 
-**Download**: prebuilt Windows installer / portable from [GitHub Releases](https://github.com/zanllp/MuseStudio/releases). To run from source:
+Run from source:
 
 ```bash
 yarn

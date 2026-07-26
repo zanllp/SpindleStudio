@@ -8,6 +8,8 @@
 
 与 [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing) 搭配使用效果更佳：生成的每张图都自带 SD WebUI 兼容 EXIF，可直接被 IIB 索引、搜索和打标。
 
+**下载**：预构建的 Windows 安装包 / 便携版见 [GitHub Releases](https://github.com/zanllp/MuseStudio/releases)。
+
 ## 它是什么
 
 MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面面俱到的通用 AI 客户端。它的定位更纯粹：
@@ -93,7 +95,7 @@ MuseStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是面�
 
 ## 快速开始
 
-**下载**：预构建的 Windows 安装包 / 便携版见 [GitHub Releases](https://github.com/zanllp/MuseStudio/releases)。从源码运行：
+从源码运行：
 
 ```bash
 yarn
