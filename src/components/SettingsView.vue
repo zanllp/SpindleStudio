@@ -65,9 +65,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 汉服修仙小女孩彩蛋：从设置窗口右下角探出打招呼 -->
-        <img :src="mascotUrl" class="settings-mascot" alt="" aria-hidden="true" />
       </div>
     </div>
   </div>
@@ -84,7 +81,6 @@ import api from '@/api'
 import AppButton from './AppButton.vue'
 import SettingsProviderList from './SettingsProviderList.vue'
 import SettingsProviderForm from './SettingsProviderForm.vue'
-import mascotUrl from '@/assets/mascot-welcome.png'
 
 const NAV_ITEMS = [
   { key: 'general', icon: markRaw(GlobalOutlined) },
@@ -320,25 +316,5 @@ async function saveAiChat() {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-/* 汉服修仙小女孩彩蛋：fixed 定位到屏幕右下角，
-   超出屏幕的部分自然被裁掉，营造「从外面探进来」的效果 */
-.settings-mascot {
-  position: fixed;
-      bottom: -15px;
-    right: -20px;
-    width: 120px;
-  height: auto;
-  pointer-events: none;
-  user-select: none;
-  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.15));
-  animation: mascot-float 3s ease-in-out infinite;
-  z-index: 1001;
-}
-
-@keyframes mascot-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
 }
 </style>
