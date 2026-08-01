@@ -45,6 +45,9 @@ const messages: MessageSchema = {
       noProviderPlaceholder: 'Configure a provider in Settings first',
       txt2img: 'Text to image',
       img2img: 'Image to image',
+      snippetsTooltip: 'Prompt snippets',
+      snippetsEmpty: 'No prompt snippets yet',
+      goAddSnippet: 'Add in Settings',
       sizes: {
         'auto': 'Auto (auto)',
         '1:1': '1:1 Square',
@@ -69,11 +72,16 @@ const messages: MessageSchema = {
       editPlaceholder: 'Edit the prompt. Enter to resend, Shift+Enter for newline',
       resend: 'Resend',
       fillBack: 'Copy back to input box',
+      copyPrompt: 'Copy prompt',
+      saveSnippetTooltip: 'Save as prompt snippet',
+      saveSnippetModalTitle: 'Save as Prompt Snippet',
+      snippetSaved: 'Saved to prompt snippets',
       editTooltip: 'Edit and resend',
       deleteConfirm: 'Delete this message and its generated results?',
       referenceTooltip: 'Use this image as a reference',
       paramsTooltip: 'View generation parameters',
       downloadTooltip: 'Download',
+      scrollToBottom: 'Back to bottom',
       generateOneMore: 'Generate one more',
       generatingSingle: 'Generating image',
       generatingPlural: 'Generating {n} images',
@@ -103,6 +111,7 @@ const messages: MessageSchema = {
     nav: {
       general: 'General',
       providers: 'Model Providers',
+      prompts: 'Prompts',
       aiChat: 'AI Title',
     },
     general: {
@@ -141,6 +150,18 @@ const messages: MessageSchema = {
         labelPlaceholder: 'Display name (optional)',
         add: 'Add model',
         enabled: 'Enable to make selectable for generation',
+      },
+    },
+    prompts: {
+      empty: 'Select or add a prompt snippet',
+      add: 'New snippet',
+      untitled: 'Untitled',
+      deleteConfirm: 'Delete this snippet?',
+      form: {
+        title: 'Title',
+        titlePlaceholder: 'Name this snippet',
+        prompt: 'Prompt',
+        promptPlaceholder: 'Full prompt text, newlines allowed',
       },
     },
     aiChat: {

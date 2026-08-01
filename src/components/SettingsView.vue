@@ -48,6 +48,11 @@
             <SettingsProviderForm v-if="editingProviderId" :key="editingProviderId" :provider-id="editingProviderId" />
             <div v-else class="form-empty">{{ $t('settings.providers.empty') }}</div>
           </template>
+          <template v-else-if="section === 'prompts'">
+            <SettingsPromptList :selected-id="editingSnippetId" @select="editingSnippetId = $event" />
+            <SettingsPromptForm v-if="editingSnippetId" :key="editingSnippetId" :snippet-id="editingSnippetId" />
+            <div v-else class="form-empty">{{ $t('settings.prompts.empty') }}</div>
+          </template>
           <div v-else class="ai-chat-form">
             <div class="form-title">{{ $t('settings.aiChat.title') }}</div>
             <p class="form-tip">{{ $t('settings.aiChat.tip') }}</p>
@@ -75,7 +80,7 @@
 
 <script setup lang="ts">
 import { ref, watch, markRaw } from 'vue'
-import { CloseOutlined, CloudOutlined, GlobalOutlined, RobotOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, CloudOutlined, GlobalOutlined, RobotOutlined, SnippetsOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useSettingsStore } from '@/stores/settings'
 import { localePreference, setLocale } from '@/i18n'
@@ -84,11 +89,14 @@ import api from '@/api'
 import AppButton from './AppButton.vue'
 import SettingsProviderList from './SettingsProviderList.vue'
 import SettingsProviderForm from './SettingsProviderForm.vue'
+import SettingsPromptList from './SettingsPromptList.vue'
+import SettingsPromptForm from './SettingsPromptForm.vue'
 import mascotUrl from '@/assets/mascot-welcome.png'
 
 const NAV_ITEMS = [
   { key: 'general', icon: markRaw(GlobalOutlined) },
   { key: 'providers', icon: markRaw(CloudOutlined) },
+  { key: 'prompts', icon: markRaw(SnippetsOutlined) },
   { key: 'aiChat', icon: markRaw(RobotOutlined) },
 ] as const
 
@@ -98,6 +106,7 @@ const settingsStore = useSettingsStore()
 const { t } = useI18n()
 const section = ref<SectionKey>('providers')
 const editingProviderId = ref('')
+const editingSnippetId = ref('')
 const aiChatDraft = ref({ apiKey: '', baseUrl: '', model: 'gpt-4o-mini' })
 const copied = ref(false)
 
@@ -134,7 +143,13 @@ watch(
   () => settingsStore.settingsOpen,
   open => {
     if (!open) return
+    // Deep link (e.g. the input box's "go add snippet" empty state) wins
+    if (settingsStore.initialSection) {
+      section.value = settingsStore.initialSection as SectionKey
+      settingsStore.initialSection = ''
+    }
     editingProviderId.value = settingsStore.providers[0]?.id || ''
+    editingSnippetId.value = settingsStore.promptSnippets[0]?.id || ''
     aiChatDraft.value = {
       apiKey: settingsStore.config.aiChat.apiKey,
       baseUrl: settingsStore.config.aiChat.baseUrl,

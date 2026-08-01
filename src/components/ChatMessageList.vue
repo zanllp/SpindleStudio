@@ -1,5 +1,5 @@
 <template>
-  <div ref="listRef" class="chat-message-list">
+  <div ref="listRef" class="chat-message-list" @scroll.passive="handleScroll">
     <div class="messages-column">
       <div v-if="!chatStore.activeConversation" class="empty-state">
         <PictureOutlined class="empty-icon" />
@@ -43,6 +43,7 @@
                     :src="ref.url"
                     :width="72"
                     :height="72"
+                    decoding="async"
                     style="object-fit: cover; border-radius: 8px;"
                   />
                 </div>
@@ -53,6 +54,16 @@
               <a-tooltip :title="$t('chat.message.fillBack')">
                 <button class="icon-btn" @click="chatStore.setDraftPrompt(msg.prompt, msg.referenceImages)">
                   <RollbackOutlined />
+                </button>
+              </a-tooltip>
+              <a-tooltip :title="$t('chat.message.copyPrompt')">
+                <button class="icon-btn" @click="copyPrompt(msg.prompt)">
+                  <CopyOutlined />
+                </button>
+              </a-tooltip>
+              <a-tooltip :title="$t('chat.message.saveSnippetTooltip')">
+                <button class="icon-btn" @click="openSaveSnippet(msg)">
+                  <BookOutlined />
                 </button>
               </a-tooltip>
               <a-tooltip v-if="canEdit(msg)" :title="$t('chat.message.editTooltip')">
@@ -90,7 +101,7 @@
                 class="generated-image-card"
                 :class="{ single: msg.generatedImages.length === 1 }"
               >
-                <a-image :src="img.url" class="gen-img" />
+                <a-image :src="img.url" class="gen-img" decoding="async" />
                 <div class="img-overlay">
                   <a-tooltip :title="$t('chat.message.referenceTooltip')">
                     <button class="overlay-btn" @click="handleReference(img)">
@@ -141,6 +152,17 @@
           </div>
         </div>
       </template>
+    </div>
+
+    <!-- 回到底部按钮：sticky 悬浮在列表可视区底部，向上滚动一定距离后出现 -->
+    <div class="scroll-bottom-anchor">
+      <Transition name="fade">
+        <a-tooltip v-if="showScrollToBottom" :title="$t('chat.message.scrollToBottom')">
+          <button class="scroll-bottom-btn" @click="scrollToBottom">
+            <ArrowDownOutlined />
+          </button>
+        </a-tooltip>
+      </Transition>
     </div>
 
     <!-- 生成参数模态框 -->
@@ -196,6 +218,28 @@
         </a-descriptions>
       </div>
     </a-modal>
+
+    <!-- 收录为常用提示词：预填消息内容，可编辑标题与内容后保存 -->
+    <a-modal
+      v-model:open="saveSnippetVisible"
+      :title="$t('chat.message.saveSnippetModalTitle')"
+      :ok-text="$t('common.confirm')"
+      :cancel-text="$t('common.cancel')"
+      @ok="confirmSaveSnippet"
+    >
+      <div class="save-snippet-field">
+        <div class="modal-label">{{ $t('settings.prompts.form.title') }}</div>
+        <a-input v-model:value="saveSnippetDraft.title" :placeholder="$t('settings.prompts.form.titlePlaceholder')" />
+      </div>
+      <div class="save-snippet-field" style="margin-bottom: 0;">
+        <div class="modal-label">{{ $t('settings.prompts.form.prompt') }}</div>
+        <a-textarea
+          v-model:value="saveSnippetDraft.prompt"
+          :auto-size="{ minRows: 4, maxRows: 12 }"
+          :placeholder="$t('settings.prompts.form.promptPlaceholder')"
+        />
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -214,6 +258,8 @@ import {
   PlusOutlined,
   RollbackOutlined,
   DeleteOutlined,
+  ArrowDownOutlined,
+  BookOutlined,
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -226,6 +272,22 @@ const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 const { t } = useI18n()
 const listRef = ref<HTMLElement | null>(null)
+
+// ==================== 回到底部 ====================
+
+const showScrollToBottom = ref(false)
+
+function handleScroll() {
+  const el = listRef.value
+  if (!el) return
+  showScrollToBottom.value = el.scrollHeight - el.scrollTop - el.clientHeight > 300
+}
+
+function scrollToBottom() {
+  const el = listRef.value
+  if (!el) return
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+}
 
 // ==================== 原地编辑 ====================
 
@@ -269,6 +331,32 @@ const paramsImage = ref<ChatGeneratedImage | null>(null)
 function openParams(img: ChatGeneratedImage) {
   paramsImage.value = img
   paramsVisible.value = true
+}
+
+// ==================== 收录为常用提示词 ====================
+
+const saveSnippetVisible = ref(false)
+const saveSnippetDraft = ref({ title: '', prompt: '' })
+
+function openSaveSnippet(msg: ChatMessage) {
+  // 标题预填提示词首行前 20 字，多数情况可直接确认
+  saveSnippetDraft.value = {
+    title: msg.prompt.split('\n')[0].trim().slice(0, 20),
+    prompt: msg.prompt,
+  }
+  saveSnippetVisible.value = true
+}
+
+async function confirmSaveSnippet() {
+  const prompt = saveSnippetDraft.value.prompt.trim()
+  if (!prompt) return
+  try {
+    await settingsStore.addPromptSnippet({ title: saveSnippetDraft.value.title.trim(), prompt })
+    saveSnippetVisible.value = false
+    message.success(t('chat.message.snippetSaved'))
+  } catch (e: any) {
+    message.error(e.response?.data?.error || e.message || t('errors.saveFailed'))
+  }
 }
 
 async function copyPrompt(prompt: string) {
@@ -390,6 +478,10 @@ watch(
 
 .message-row {
   margin-bottom: 28px;
+  /* 长对话优化：浏览器跳过屏幕外消息行的布局/绘制，打开长会话与滚动时显著减负。
+     contain-intrinsic-size 给未渲染行一个占位高度估计，auto 表示渲染过后记住实际高度，减少滚动跳动 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 280px;
 }
 
 /* ---------- 用户消息 ---------- */
@@ -488,6 +580,17 @@ watch(
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* 收录提示词 modal */
+.save-snippet-field {
+  margin-bottom: 16px;
+}
+
+.modal-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
 /* ---------- assistant 消息 ---------- */
@@ -693,5 +796,48 @@ watch(
 .add-image-btn:hover {
   border-color: var(--addbtn-hover-border);
   color: var(--addbtn-hover-text);
+}
+
+/* 回到底部：sticky 定位在滚动容器可视区底部；height:0 不占文档流，按钮相对锚点上浮 */
+.scroll-bottom-anchor {
+  position: sticky;
+  bottom: 12px;
+  height: 0;
+  z-index: 10;
+}
+
+.scroll-bottom-btn {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--addbtn-border);
+  border-radius: 50%;
+  background: var(--addbtn-bg);
+  color: var(--addbtn-text);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.scroll-bottom-btn:hover {
+  border-color: var(--addbtn-hover-border);
+  color: var(--addbtn-hover-text);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

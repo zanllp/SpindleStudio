@@ -49,10 +49,12 @@ function ensureConnected() {
 export function onSync(handlers: {
   onConversationsChanged: () => void
   onConversationUpdated: (convId: string) => void
+  onConfigChanged: () => void
 }) {
   ensureConnected()
   socket!.off('conversations-changed')
   socket!.off('conversation-updated')
+  socket!.off('config-changed')
   socket!.on('conversations-changed', () => {
     log('← conversations-changed')
     handlers.onConversationsChanged()
@@ -60,6 +62,10 @@ export function onSync(handlers: {
   socket!.on('conversation-updated', ({ convId }: { convId: string }) => {
     log('← conversation-updated', convId)
     handlers.onConversationUpdated(convId)
+  })
+  socket!.on('config-changed', () => {
+    log('← config-changed')
+    handlers.onConfigChanged()
   })
   log('listening')
 }

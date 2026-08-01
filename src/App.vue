@@ -94,6 +94,8 @@ watch(
 onSync({
   onConversationsChanged: () => chatStore.loadConversations(),
   onConversationUpdated: (id) => chatStore.maybeReloadConversation(id),
+  // 配置（供应商/常用提示词等）在任一窗口修改后，其余窗口重新拉取
+  onConfigChanged: () => settingsStore.loadConfig(),
 })
 
 onMounted(async () => {

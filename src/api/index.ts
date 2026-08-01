@@ -9,7 +9,7 @@ import type {
 } from '@/types'
 
 const apiClient = axios.create({
-  timeout: 300000,
+  timeout: 600000,
   headers: {
     'Content-Type': 'application/json',
   },

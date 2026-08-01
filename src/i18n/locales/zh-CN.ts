@@ -45,6 +45,9 @@ const messages = {
       noProviderPlaceholder: '请先在设置中配置供应商',
       txt2img: '文生图',
       img2img: '图生图',
+      snippetsTooltip: '常用提示词',
+      snippetsEmpty: '还没有常用提示词',
+      goAddSnippet: '去设置添加',
       sizes: {
         'auto': '自动 (auto)',
         '1:1': '1:1 正方形',
@@ -69,11 +72,16 @@ const messages = {
       editPlaceholder: '编辑提示词，Enter 重新发送，Shift+Enter 换行',
       resend: '重新发送',
       fillBack: '回填到输入框',
+      copyPrompt: '复制提示词',
+      saveSnippetTooltip: '收录为常用提示词',
+      saveSnippetModalTitle: '收录为常用提示词',
+      snippetSaved: '已收录到常用提示词',
       editTooltip: '编辑并重新发送',
       deleteConfirm: '删除该消息及其生成结果？',
       referenceTooltip: '引用此图继续生成',
       paramsTooltip: '查看生成参数',
       downloadTooltip: '下载',
+      scrollToBottom: '回到底部',
       generateOneMore: '再生成一张',
       generatingSingle: '正在生成图片',
       generatingPlural: '正在生成 {n} 张图片',
@@ -103,6 +111,7 @@ const messages = {
     nav: {
       general: '通用',
       providers: '模型服务',
+      prompts: '提示词',
       aiChat: 'AI 总结',
     },
     general: {
@@ -141,6 +150,18 @@ const messages = {
         labelPlaceholder: '显示名（可选）',
         add: '添加模型',
         enabled: '启用后可在生图时选择',
+      },
+    },
+    prompts: {
+      empty: '请选择或新建一条提示词',
+      add: '新建提示词',
+      untitled: '未命名',
+      deleteConfirm: '删除这条提示词？',
+      form: {
+        title: '标题',
+        titlePlaceholder: '给提示词起个名字',
+        prompt: '提示词内容',
+        promptPlaceholder: '输入完整提示词，可包含换行',
       },
     },
     aiChat: {

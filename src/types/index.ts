@@ -64,10 +64,18 @@ export interface AiChatConfig {
   model: string
 }
 
+// Saved prompt shortcut — filled into the chat input from the toolbar panel
+export interface PromptSnippet {
+  id: string
+  title: string   // short label shown in lists/panels
+  prompt: string  // full text inserted into the input box
+}
+
 // App configuration managed by the settings page
 export interface AppConfig {
   providers: ProviderConfig[]
   aiChat: AiChatConfig
+  promptSnippets: PromptSnippet[]
 }
 
 // Image generation request (proxied to the configured provider API)

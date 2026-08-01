@@ -12,6 +12,7 @@
       <!-- 圆角卡片式输入框 -->
       <div class="input-card">
         <a-textarea
+          ref="textareaRef"
           v-model:value="inputValue"
           :auto-size="{ minRows: 1, maxRows: 8 }"
           :bordered="false"
@@ -31,9 +32,9 @@
                     <a-spin size="small" />
                   </div>
                   <div v-else-if="uploadHistory.length === 0" class="upload-history-empty">{{ $t('chat.input.noUploads') }}</div>
-                  <div v-else class="upload-history-grid">
+                  <div v-else class="upload-history-grid" @scroll.passive="handleUploadScroll">
                     <div
-                      v-for="item in uploadHistory"
+                      v-for="item in visibleUploads"
                       :key="item.relativePath"
                       class="upload-history-cell"
                       :title="item.filename"
@@ -57,11 +58,18 @@
             </a-popover>
 
             <!-- 生成参数 -->
-            <a-popover trigger="click" placement="topLeft">
+            <a-popover trigger="hover" placement="topLeft">
               <template #content>
                 <div class="params-panel">
                   <div class="param-label">{{ $t('chat.input.sizeLabel') }}</div>
-                  <a-select v-model:value="chatStore.chatSize" :options="sizeOptions" size="small" style="width: 100%;" />
+                  <!-- 下拉挂进面板内部：hover 模式下鼠标移向选项不会被判定为离开面板 -->
+                  <a-select
+                    v-model:value="chatStore.chatSize"
+                    :options="sizeOptions"
+                    size="small"
+                    style="width: 100%;"
+                    :get-popup-container="popupInPanel"
+                  />
                   <div class="param-label" style="margin-top: 10px;">{{ $t('chat.input.resolutionLabel') }}</div>
                   <a-radio-group v-model:value="chatStore.chatResolution" size="small" button-style="solid">
                     <a-radio-button value="1k">1K</a-radio-button>
@@ -72,6 +80,36 @@
               </template>
               <button class="tool-btn" :title="$t('chat.input.paramsTooltip')">
                 <ControlOutlined />
+              </button>
+            </a-popover>
+
+            <!-- 常用提示词：点击智能追加到输入框 -->
+            <a-popover v-model:open="snippetsOpen" trigger="hover" placement="topLeft">
+              <template #content>
+                <div class="snippet-panel">
+                  <div class="snippet-panel-title">{{ $t('chat.input.snippetsTooltip') }}</div>
+                  <div v-if="settingsStore.promptSnippets.length === 0" class="snippet-panel-empty">
+                    <div>{{ $t('chat.input.snippetsEmpty') }}</div>
+                    <button class="snippet-goto-btn" @click="goAddSnippet">
+                      {{ $t('chat.input.goAddSnippet') }}
+                    </button>
+                  </div>
+                  <div v-else class="snippet-panel-list">
+                    <div
+                      v-for="s in settingsStore.promptSnippets"
+                      :key="s.id"
+                      class="snippet-panel-item"
+                      :title="s.prompt"
+                      @click="insertSnippet(s)"
+                    >
+                      <div class="snippet-item-title">{{ s.title || $t('settings.prompts.untitled') }}</div>
+                      <div class="snippet-item-preview">{{ s.prompt }}</div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <button class="tool-btn" :title="$t('chat.input.snippetsTooltip')">
+                <SnippetsOutlined />
               </button>
             </a-popover>
 
@@ -127,19 +165,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { PaperClipOutlined, ArrowUpOutlined, CloseCircleFilled, ControlOutlined, MinusOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { ref, computed, watch, nextTick } from 'vue'
+import { PaperClipOutlined, ArrowUpOutlined, CloseCircleFilled, ControlOutlined, MinusOutlined, PlusOutlined, SnippetsOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import api from '@/api'
-import type { UploadHistoryItem } from '@/types'
+import type { PromptSnippet, UploadHistoryItem } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 const { t } = useI18n()
 const inputValue = ref('')
+const textareaRef = ref()
 
 // 生成张数范围（每张图一个独立请求，上限避免一次打太多并发）
 const MIN_COUNT = 1
@@ -157,14 +196,54 @@ watch(
   }
 )
 
+// ==================== 常用提示词 ====================
+
+const snippetsOpen = ref(false)
+
+// 下拉挂进面板内部：hover 模式下鼠标移向选项不会被判定为离开面板
+function popupInPanel(node: HTMLElement): HTMLElement {
+  return node.parentElement || document.body
+}
+
+// 智能追加：输入框为空直接填入，已有内容则换行追加，不覆盖
+function insertSnippet(s: PromptSnippet) {
+  const prompt = s.prompt.trim()
+  if (!prompt) return
+  const cur = inputValue.value.trimEnd()
+  inputValue.value = cur ? `${cur}\n${prompt}` : prompt
+  snippetsOpen.value = false
+  nextTick(() => textareaRef.value?.focus())
+}
+
+// 空态跳转：打开设置页并落在提示词分区
+function goAddSnippet() {
+  snippetsOpen.value = false
+  settingsStore.initialSection = 'prompts'
+  settingsStore.settingsOpen = true
+}
+
 // ==================== 上传历史（悬停面板） ====================
 
 const uploadHistory = ref<UploadHistoryItem[]>([])
 const uploadHistoryLoading = ref(false)
 
+// 本地分页：默认渲染 20 个，滚动到底逐步追加，避免一次性挂载大量 img 节点
+const UPLOAD_PAGE_SIZE = 20
+const uploadDisplayCount = ref(UPLOAD_PAGE_SIZE)
+const visibleUploads = computed(() => uploadHistory.value.slice(0, uploadDisplayCount.value))
+
+function handleUploadScroll(e: Event) {
+  const el = e.target as HTMLElement
+  const reachedBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
+  if (reachedBottom && uploadDisplayCount.value < uploadHistory.value.length) {
+    uploadDisplayCount.value += UPLOAD_PAGE_SIZE
+  }
+}
+
 async function loadUploadHistory(open: boolean) {
   if (!open) return
   uploadHistoryLoading.value = true
+  uploadDisplayCount.value = UPLOAD_PAGE_SIZE
   try {
     const { uploads } = await api.getUploads()
     uploadHistory.value = uploads
@@ -508,10 +587,79 @@ async function handleSend() {
   margin-bottom: 4px;
 }
 
+/* ---------- 常用提示词面板 ---------- */
+
+.snippet-panel {
+  width: 280px;
+}
+
+.snippet-panel-title {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.snippet-panel-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0 -4px;
+}
+
+.snippet-panel-item {
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.snippet-panel-item:hover {
+  background: var(--toolbtn-hover-bg);
+}
+
+.snippet-item-title {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippet-item-preview {
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippet-panel-empty {
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: center;
+  padding: 16px 0 8px;
+}
+
+.snippet-goto-btn {
+  margin-top: 8px;
+  padding: 4px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.snippet-goto-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
 /* ---------- 上传历史：3x3 网格可滚动 ---------- */
 
 .upload-history {
-  width: 212px; /* 3 * 64 + 2 * 8 + 边框余量 */
+  width: 400px; /* 3 * 128 + 2 * 6 + 边框余量 */
 }
 
 .upload-history-title {
@@ -529,16 +677,16 @@ async function handleSend() {
 
 .upload-history-grid {
   display: grid;
-  grid-template-columns: repeat(3, 64px);
+  grid-template-columns: repeat(3, 128px);
   gap: 6px;
-  max-height: 204px; /* 3 行，超出滚动 */
+  max-height: 396px; /* 3 行，超出滚动 */
   overflow-y: auto;
 }
 
 .upload-history-cell {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 128px;
+  height: 128px;
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;

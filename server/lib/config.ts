@@ -11,9 +11,17 @@ export interface AiChatConfig {
   model: string
 }
 
+// Saved prompt shortcut — filled into the chat input from the toolbar panel
+export interface PromptSnippet {
+  id: string
+  title: string
+  prompt: string
+}
+
 export interface AppConfig {
   providers: ProviderConfig[]
   aiChat: AiChatConfig
+  promptSnippets: PromptSnippet[]
 }
 
 export const DEFAULT_APIMART_BASE_URL = 'https://api.apimart.ai/v1'
@@ -69,7 +77,7 @@ export const OPENROUTER_MODEL_PRESETS: ProviderModel[] = [
 ]
 
 let configFile = ''
-let appConfig: AppConfig = { providers: [], aiChat: { apiKey: '', baseUrl: DEFAULT_OPENAI_BASE_URL, model: 'gpt-4o-mini' } }
+let appConfig: AppConfig = { providers: [], aiChat: { apiKey: '', baseUrl: DEFAULT_OPENAI_BASE_URL, model: 'gpt-4o-mini' }, promptSnippets: [] }
 
 export function getConfig(): AppConfig {
   return appConfig
@@ -120,6 +128,7 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
       baseUrl: process.env.OPENAI_BASE_URL || DEFAULT_OPENAI_BASE_URL,
       model: 'gpt-4o-mini',
     },
+    promptSnippets: [],
   }
 
   let saved: any = null
@@ -165,6 +174,11 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
       if (saved.aiChat) {
         appConfig.aiChat = { ...appConfig.aiChat, ...saved.aiChat }
       }
+      // Older configs have no promptSnippets — keep the empty default.
+      // Empty-prompt items are kept: a freshly created snippet is blank until edited
+      if (Array.isArray(saved.promptSnippets)) {
+        appConfig.promptSnippets = (saved.promptSnippets as any[]).map(sanitizeSnippet).filter((s: PromptSnippet) => s.id)
+      }
       if (migrated) {
         await persistConfig()
         console.log('config.json migrated: openrouter provider now uses the OpenRouter Image API')
@@ -201,8 +215,19 @@ export async function saveConfig(patch: Partial<AppConfig>): Promise<AppConfig> 
       model: typeof patch.aiChat.model === 'string' ? patch.aiChat.model.trim() || 'gpt-4o-mini' : appConfig.aiChat.model,
     }
   }
+  if (Array.isArray(patch.promptSnippets)) {
+    appConfig.promptSnippets = patch.promptSnippets.map(sanitizeSnippet).filter(s => s.id)
+  }
   await persistConfig()
   return appConfig
+}
+
+function sanitizeSnippet(s: any): PromptSnippet {
+  return {
+    id: String(s?.id || '').slice(0, 64),
+    title: String(s?.title || '').trim().slice(0, 64),
+    prompt: typeof s?.prompt === 'string' ? s.prompt.slice(0, 4000) : '',
+  }
 }
 
 function normalizeBaseUrl(value: unknown, fallback: string): string {

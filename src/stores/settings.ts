@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import api from '@/api'
 import { t } from '@/i18n'
-import type { AppConfig, ProviderConfig, ProviderModel } from '@/types'
+import type { AppConfig, PromptSnippet, ProviderConfig, ProviderModel } from '@/types'
 
 // localStorage key remembering the last selected provider/model
 const SELECTED_MODEL_KEY = 'app_selected_model'
@@ -11,10 +11,17 @@ function genCustomProviderId(): string {
   return `custom_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function genSnippetId(): string {
+  return `snippet_${Math.random().toString(36).slice(2, 10)}`
+}
+
 export const useSettingsStore = defineStore('settings', () => {
-  const config = ref<AppConfig>({ providers: [], aiChat: { apiKey: '', baseUrl: '', model: 'gpt-4o-mini' } })
+  const config = ref<AppConfig>({ providers: [], aiChat: { apiKey: '', baseUrl: '', model: 'gpt-4o-mini' }, promptSnippets: [] })
   const loaded = ref(false)
   const settingsOpen = ref(false)
+  // Section the settings page should land on next time it opens (set by deep
+  // links like the input box's "go add snippet" empty state)
+  const initialSection = ref('')
   const selectedProviderId = ref('')
   const selectedModelId = ref('')
 
@@ -75,6 +82,33 @@ export const useSettingsStore = defineStore('settings', () => {
     config.value = await api.saveConfig({ aiChat: { apiKey, baseUrl, model } })
   }
 
+  // ==================== 常用提示词 ====================
+
+  const promptSnippets = computed(() => config.value.promptSnippets ?? [])
+
+  async function savePromptSnippets(next: PromptSnippet[]) {
+    config.value = await api.saveConfig({ promptSnippets: next })
+  }
+
+  // init lets callers prefill a snippet being collected (e.g. from a chat message)
+  async function addPromptSnippet(init?: { title?: string; prompt?: string }): Promise<PromptSnippet> {
+    const snippet: PromptSnippet = {
+      id: genSnippetId(),
+      title: init?.title ?? '',
+      prompt: init?.prompt ?? '',
+    }
+    await savePromptSnippets([...promptSnippets.value, snippet])
+    return snippet
+  }
+
+  function updatePromptSnippet(id: string, patch: Partial<Omit<PromptSnippet, 'id'>>) {
+    return savePromptSnippets(promptSnippets.value.map(s => (s.id === id ? { ...s, ...patch } : s)))
+  }
+
+  function removePromptSnippet(id: string) {
+    return savePromptSnippets(promptSnippets.value.filter(s => s.id !== id))
+  }
+
   function updateProvider(id: string, patch: Partial<ProviderConfig>) {
     return saveProviders(providers.value.map(p => (p.id === id ? { ...p, ...patch } : p)))
   }
@@ -114,6 +148,7 @@ export const useSettingsStore = defineStore('settings', () => {
     config,
     loaded,
     settingsOpen,
+    initialSection,
     providers,
     usableProviders,
     hasUsableProvider,
@@ -131,5 +166,10 @@ export const useSettingsStore = defineStore('settings', () => {
     removeProvider,
     getProvider,
     providerLabel,
+    promptSnippets,
+    savePromptSnippets,
+    addPromptSnippet,
+    updatePromptSnippet,
+    removePromptSnippet,
   }
 })

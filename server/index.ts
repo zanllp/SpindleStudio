@@ -112,7 +112,8 @@ app.get('/api/config', async (_req, res) => {
 
 app.put('/api/config', async (req, res) => {
   try {
-    const saved = await saveConfig({ providers: req.body?.providers, aiChat: req.body?.aiChat })
+    const saved = await saveConfig({ providers: req.body?.providers, aiChat: req.body?.aiChat, promptSnippets: req.body?.promptSnippets })
+    io.emit('config-changed')
     res.json(saved)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
