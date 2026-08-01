@@ -11,7 +11,7 @@
           {{ $t('sidebar.empty') }}
         </div>
         <div
-          v-for="conv in chatStore.conversationList"
+          v-for="conv in recentConversations"
           :key="conv.id"
           class="conversation-item"
           :class="{ active: conv.id === chatStore.activeConversationId }"
@@ -36,6 +36,10 @@
               </a-tooltip>
             </a-popconfirm>
           </span>
+        </div>
+        <!-- 超出 20 条截断时告知用户，避免旧会话"凭空消失" -->
+        <div v-if="chatStore.conversationList.length > SIDEBAR_RECENT_LIMIT" class="recent-limit-hint">
+          {{ $t('sidebar.recentLimitHint', { total: chatStore.conversationList.length }) }}
         </div>
       </a-spin>
     </div>
@@ -70,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined, RobotOutlined, SettingOutlined, ExportOutlined, WindowsOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -87,6 +91,11 @@ const renameModalOpen = ref(false)
 const renameValue = ref('')
 const renamingId = ref<string | null>(null)
 const aiTitleLoading = ref(false)
+
+// 侧栏只维护最新 20 条会话：每个会话项带 3 个 a-tooltip + 1 个 a-popconfirm，
+// 数量随会话数线性增长，限制渲染规模；更早的会话不在侧栏展示
+const SIDEBAR_RECENT_LIMIT = 20
+const recentConversations = computed(() => chatStore.conversationList.slice(0, SIDEBAR_RECENT_LIMIT))
 
 async function handleCreate() {
   await chatStore.createNewConversation()
@@ -201,6 +210,14 @@ async function handleAiSummarize() {
   font-size: 13px;
   text-align: center;
   padding: 24px 0;
+}
+
+/* 列表底部「仅展示最近 20 条」截断提示 */
+.recent-limit-hint {
+  color: var(--sider-faint);
+  font-size: 12px;
+  text-align: center;
+  padding: 8px 0 12px;
 }
 
 .conversation-item {

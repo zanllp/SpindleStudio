@@ -4,7 +4,7 @@
       <!-- 待发送的参考图 -->
       <div v-if="chatStore.pendingReferenceImages.length > 0" class="pending-refs">
         <div v-for="ref in chatStore.pendingReferenceImages" :key="ref.id" class="ref-thumb">
-          <img :src="ref.url" :alt="$t('chat.input.refAlt')" />
+          <img :src="thumbUrl(ref.url, 144)" :alt="$t('chat.input.refAlt')" />
           <CloseCircleFilled class="remove-ref" @click="chatStore.removePendingReference(ref.id)" />
         </div>
       </div>
@@ -40,7 +40,7 @@
                       :title="item.filename"
                       @click="pickUpload(item)"
                     >
-                      <img :src="item.url" :alt="item.filename" loading="lazy" />
+                      <img :src="thumbUrl(item.url, 128)" :alt="item.filename" loading="lazy" />
                       <span v-if="item.useCount > 0" class="use-count">{{ item.useCount }}</span>
                     </div>
                   </div>
@@ -172,6 +172,7 @@ import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import api from '@/api'
+import { thumbUrl } from '@/lib/image'
 import type { PromptSnippet, UploadHistoryItem } from '@/types'
 
 const chatStore = useChatStore()

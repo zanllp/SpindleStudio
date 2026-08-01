@@ -6,6 +6,7 @@ import { i18n } from './i18n'
 
 import 'ant-design-vue/dist/reset.css'
 import './styles/themes.css'
+import './styles/tooltip.css'
 
 const app = createApp(App)
 const pinia = createPinia()

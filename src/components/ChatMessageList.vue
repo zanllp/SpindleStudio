@@ -2,16 +2,16 @@
   <div ref="listRef" class="chat-message-list" @scroll.passive="handleScroll">
     <!-- 生成队列开关：sticky 悬浮在列表可视区右上角 -->
     <div class="queue-toggle-anchor">
-      <a-tooltip :title="$t('chat.queue.toggleTooltip')" placement="left">
-        <button
-          class="queue-toggle-btn"
-          :class="{ active: chatStore.queueOpen }"
-          @click="chatStore.queueOpen = !chatStore.queueOpen"
-        >
-          <UnorderedListOutlined />
-          <span v-if="queueGeneratingCount > 0" class="queue-badge">{{ queueGeneratingCount }}</span>
-        </button>
-      </a-tooltip>
+      <button
+        class="queue-toggle-btn"
+        :class="{ active: chatStore.queueOpen, blink: queueBtnBlink }"
+        :data-tip="$t('chat.queue.toggleTooltip')"
+        data-tip-placement="left"
+        @click="chatStore.queueOpen = !chatStore.queueOpen"
+      >
+        <UnorderedListOutlined />
+        <span v-if="queueGeneratingCount > 0" class="queue-badge">{{ queueGeneratingCount }}</span>
+      </button>
     </div>
 
     <div class="messages-column">
@@ -31,6 +31,8 @@
           v-for="msg in chatStore.activeConversation.messages"
           :key="msg.id"
           :id="`msg-${msg.id}`"
+          :ref="(el) => setRowRef(el as Element | null, msg.id)"
+          :data-msg-id="msg.id"
           class="message-row"
           :class="msg.role"
         >
@@ -52,52 +54,43 @@
               </template>
               <template v-else>
                 <div v-if="msg.referenceImages.length > 0" class="ref-images">
-                  <a-image
-                    v-for="ref in msg.referenceImages"
-                    :key="ref.id"
-                    :src="ref.url"
-                    :width="72"
-                    :height="72"
-                    decoding="async"
-                    style="object-fit: cover; border-radius: 8px;"
-                  />
+                  <template v-for="ref in msg.referenceImages" :key="ref.id">
+                    <img
+                      v-if="!destroyedRows.has(msg.id)"
+                      :src="thumbUrl(ref.url, 144)"
+                      loading="lazy"
+                      decoding="async"
+                      class="ref-img"
+                      @click="openPreview(ref.url)"
+                    />
+                    <div v-else class="ref-img img-placeholder" />
+                  </template>
                 </div>
                 <div class="prompt-text">{{ msg.prompt }}</div>
               </template>
             </div>
             <div v-if="editingId !== msg.id" class="msg-actions">
-              <a-tooltip :title="$t('chat.message.fillBack')">
-                <button class="icon-btn" @click="chatStore.setDraftPrompt(msg.prompt, msg.referenceImages)">
-                  <RollbackOutlined />
-                </button>
-              </a-tooltip>
-              <a-tooltip :title="$t('chat.message.copyPrompt')">
-                <button class="icon-btn" @click="copyPrompt(msg.prompt)">
-                  <CopyOutlined />
-                </button>
-              </a-tooltip>
-              <a-tooltip :title="$t('chat.message.saveSnippetTooltip')">
-                <button class="icon-btn" @click="openSaveSnippet(msg)">
-                  <BookOutlined />
-                </button>
-              </a-tooltip>
-              <a-tooltip v-if="canEdit(msg)" :title="$t('chat.message.editTooltip')">
-                <button class="icon-btn" @click="startEdit(msg)">
-                  <EditOutlined />
-                </button>
-              </a-tooltip>
-              <a-popconfirm
-                :title="$t('chat.message.deleteConfirm')"
-                :ok-text="$t('common.delete')"
-                :cancel-text="$t('common.cancel')"
-                @confirm="handleDelete(msg)"
+              <button class="icon-btn" :data-tip="$t('chat.message.fillBack')" @click="chatStore.setDraftPrompt(msg.prompt, msg.referenceImages)">
+                <RollbackOutlined />
+              </button>
+              <button class="icon-btn" :data-tip="$t('chat.message.copyPrompt')" @click="copyPrompt(msg.prompt)">
+                <CopyOutlined />
+              </button>
+              <button class="icon-btn" :data-tip="$t('chat.message.saveSnippetTooltip')" @click="openSaveSnippet(msg)">
+                <BookOutlined />
+              </button>
+              <button v-if="canEdit(msg)" class="icon-btn" :data-tip="$t('chat.message.editTooltip')" @click="startEdit(msg)">
+                <EditOutlined />
+              </button>
+              <button
+                class="icon-btn delete-btn"
+                :class="{ confirming: confirmingDeleteId === msg.id }"
+                :data-tip="confirmingDeleteId === msg.id ? $t('chat.message.deleteConfirmAgain') : $t('common.delete')"
+                data-tip-align="end"
+                @click="handleDeleteClick(msg)"
               >
-                <a-tooltip :title="$t('common.delete')">
-                  <button class="icon-btn delete-btn">
-                    <DeleteOutlined />
-                  </button>
-                </a-tooltip>
-              </a-popconfirm>
+                <DeleteOutlined />
+              </button>
             </div>
           </div>
 
@@ -116,34 +109,42 @@
                 class="generated-image-card"
                 :class="{ single: msg.generatedImages.length === 1 }"
               >
-                <a-image :src="img.url" class="gen-img" decoding="async" />
+                <img
+                  v-if="!destroyedRows.has(msg.id)"
+                  :src="thumbUrl(img.url, 480)"
+                  loading="lazy"
+                  decoding="async"
+                  class="gen-img"
+                  :alt="img.filename"
+                  :style="genImgStyle(img)"
+                  @load="recordImgDims(img.id, $event)"
+                  @click="openPreview(img.url)"
+                />
+                <div v-else class="gen-img img-placeholder" :style="genImgStyle(img)" />
                 <div class="img-overlay">
-                  <a-tooltip :title="$t('chat.message.referenceTooltip')">
-                    <button class="overlay-btn" @click="handleReference(img)">
-                      <LinkOutlined />
-                    </button>
-                  </a-tooltip>
-                  <a-tooltip :title="$t('chat.message.paramsTooltip')">
-                    <button class="overlay-btn" @click="openParams(img)">
-                      <InfoCircleOutlined />
-                    </button>
-                  </a-tooltip>
+                  <button class="overlay-btn" :data-tip="$t('chat.message.referenceTooltip')" @click="handleReference(img)">
+                    <LinkOutlined />
+                  </button>
+                  <button class="overlay-btn" :data-tip="$t('chat.message.paramsTooltip')" @click="openParams(img)">
+                    <InfoCircleOutlined />
+                  </button>
                   <a :href="img.url" :download="img.filename">
-                    <a-tooltip :title="$t('chat.message.downloadTooltip')">
-                      <button class="overlay-btn">
-                        <DownloadOutlined />
-                      </button>
-                    </a-tooltip>
+                    <button class="overlay-btn" :data-tip="$t('chat.message.downloadTooltip')">
+                      <DownloadOutlined />
+                    </button>
                   </a>
                 </div>
                 <span v-if="img.generationTime" class="gen-time">{{ img.generationTime.toFixed(1) }}s</span>
               </div>
               <!-- 追加生成一张：复用本消息的提示词与参考图，生成中也可点 -->
-              <a-tooltip v-if="msg.status === 'done' || msg.status === 'generating'" :title="$t('chat.message.generateOneMore')">
-                <button class="add-image-btn" @click="handleGenerateMore(msg)">
-                  <PlusOutlined />
-                </button>
-              </a-tooltip>
+              <button
+                v-if="msg.status === 'done' || msg.status === 'generating'"
+                class="add-image-btn"
+                :data-tip="$t('chat.message.generateOneMore')"
+                @click="handleGenerateMore(msg)"
+              >
+                <PlusOutlined />
+              </button>
             </div>
 
             <div v-if="msg.status === 'generating'" class="generating-card">
@@ -172,13 +173,21 @@
     <!-- 回到底部按钮：sticky 悬浮在列表可视区底部，向上滚动一定距离后出现 -->
     <div class="scroll-bottom-anchor">
       <Transition name="fade">
-        <a-tooltip v-if="showScrollToBottom" :title="$t('chat.message.scrollToBottom')">
-          <button class="scroll-bottom-btn" @click="scrollToBottom">
-            <ArrowDownOutlined />
-          </button>
-        </a-tooltip>
+        <button v-if="showScrollToBottom" class="scroll-bottom-btn" :data-tip="$t('chat.message.scrollToBottom')" @click="scrollToBottom">
+          <ArrowDownOutlined />
+        </button>
       </Transition>
     </div>
+
+    <!-- 共享图片预览：列表里用懒加载小图，点击时预览层加载原图（预览层 portal 到 body，隐藏宿主不影响） -->
+    <a-image
+      :style="{ display: 'none' }"
+      :preview="{
+        visible: previewVisible,
+        src: previewSrc,
+        onVisibleChange: (v: boolean) => { previewVisible = v },
+      }"
+    />
 
     <!-- 生成参数模态框 -->
     <a-modal
@@ -259,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import {
   LinkOutlined,
   DownloadOutlined,
@@ -281,6 +290,7 @@ import { message, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
+import { thumbUrl } from '@/lib/image'
 import AppButton from './AppButton.vue'
 import type { ChatGeneratedImage, ChatMessage, ChatProvider } from '@/types'
 
@@ -288,6 +298,99 @@ const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 const { t } = useI18n()
 const listRef = ref<HTMLElement | null>(null)
+
+// ==================== 图片预览 ====================
+
+// 单个受控预览实例服务整个列表：列表项只渲染懒加载缩略图，
+// 点开才加载原图（原来每张图一个 a-image，长会话下几百个组件实例 + 全尺寸解码直接把内存吃爆）
+const previewVisible = ref(false)
+const previewSrc = ref('')
+
+function openPreview(url: string) {
+  previewSrc.value = url
+  previewVisible.value = true
+}
+
+// 有真实像素尺寸时按宽高比占位，懒加载图片上屏时列表不跳动
+function genImgStyle(img: ChatGeneratedImage) {
+  const meta = img.metadata
+  if (meta?.width && meta?.height) return { aspectRatio: `${meta.width} / ${meta.height}` }
+  const d = imgDims.get(img.id)
+  return d ? { aspectRatio: `${d.w} / ${d.h}` } : undefined
+}
+
+// ==================== 屏幕外图片销毁 ====================
+// loading=lazy 只保证屏幕外不加载；已解码的图滚走后位图仍驻留内存（每张 ~1.4MB），
+// 长会话滚过一遍后几百张缩略图全驻留也有几百 MB。
+// 进入过近视口区（上下各一屏）又离开 30s 的行，卸载其中的 <img> 让解码位图随 GC 释放；
+// 回到近视口区自动重挂 —— 缩略图带 immutable 缓存，重挂只是一次快速解码。
+// 占位元素沿用图片宽高比，滚动位置不跳。
+const OFFSCREEN_DESTROY_DELAY = 30_000
+
+const destroyedRows = reactive(new Set<string>())
+const rowEls = new Map<string, Element>()
+const seenRows = new Set<string>()
+const rowDestroyTimers = new Map<string, ReturnType<typeof setTimeout>>()
+// 无 metadata 的图片在首次加载后记录实际宽高，供销毁后占位
+const imgDims = new Map<string, { w: number; h: number }>()
+
+function recordImgDims(id: string, e: Event) {
+  const el = e.target as HTMLImageElement
+  if (el.naturalWidth && el.naturalHeight) imgDims.set(id, { w: el.naturalWidth, h: el.naturalHeight })
+}
+
+let rowObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  rowObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const id = (entry.target as HTMLElement).dataset.msgId
+      if (!id) continue
+      if (entry.isIntersecting) {
+        seenRows.add(id)
+        clearTimeout(rowDestroyTimers.get(id))
+        rowDestroyTimers.delete(id)
+        destroyedRows.delete(id)
+      } else if (seenRows.has(id) && !rowDestroyTimers.has(id)) {
+        // 只为"看过又离开"的行安排销毁；从未进入视口的行本来就没有位图可释放
+        rowDestroyTimers.set(id, setTimeout(() => {
+          rowDestroyTimers.delete(id)
+          destroyedRows.add(id)
+        }, OFFSCREEN_DESTROY_DELAY))
+      }
+    }
+  }, { root: listRef.value, rootMargin: '100% 0px' })
+  // 函数 ref 早于 onMounted 触发，初始行在这里统一补登记
+  for (const el of rowEls.values()) rowObserver.observe(el)
+})
+
+onBeforeUnmount(() => {
+  rowObserver?.disconnect()
+  for (const t of rowDestroyTimers.values()) clearTimeout(t)
+  resetDeleteConfirm()
+  if (queueBlinkTimer) clearTimeout(queueBlinkTimer)
+})
+
+function setRowRef(el: Element | null, id: string) {
+  if (el) {
+    rowEls.set(id, el)
+    rowObserver?.observe(el)
+  } else {
+    const prev = rowEls.get(id)
+    if (prev) rowObserver?.unobserve(prev)
+    rowEls.delete(id)
+    seenRows.delete(id)
+    clearTimeout(rowDestroyTimers.get(id))
+    rowDestroyTimers.delete(id)
+    destroyedRows.delete(id)
+  }
+}
+
+// 切换会话：行全部重挂，销毁状态与尺寸缓存随之失效
+watch(() => chatStore.activeConversationId, () => {
+  destroyedRows.clear()
+  imgDims.clear()
+})
 
 // ==================== 回到底部 ====================
 
@@ -308,6 +411,19 @@ function scrollToBottom() {
 // ==================== 生成队列 ====================
 
 const queueGeneratingCount = computed(() => chatStore.genQueue.filter(e => e.status === 'generating').length)
+
+// 队列任务了结（成功/失败）时脉冲闪烁队列开关，替代之前的列表跳转提示；
+// 面板已打开时用户能直接看到状态变化，不闪
+const queueBtnBlink = ref(false)
+let queueBlinkTimer: ReturnType<typeof setTimeout> | null = null
+watch(() => chatStore.queueSettleTick, async () => {
+  if (chatStore.queueOpen) return
+  queueBtnBlink.value = false // 先复位，连续事件才能重新触发动画
+  await nextTick()
+  queueBtnBlink.value = true
+  if (queueBlinkTimer) clearTimeout(queueBlinkTimer)
+  queueBlinkTimer = setTimeout(() => { queueBtnBlink.value = false }, 2000)
+})
 
 // 队列卡片跳转：滚动到指定消息并短暂高亮（供 ChatPanel 调用）
 function scrollToMessage(msgId: string) {
@@ -430,34 +546,54 @@ function handleGenerateMore(msg: ChatMessage) {
   chatStore.generateOneMore(msg.id)
 }
 
-// 删除消息：已有实际产出（至少一张生成图）时再弹一次确认，避免误删成果
-function handleDelete(msg: ChatMessage) {
+// 删除消息：无产出的消息用行内两步确认（第一次点击进入红色确认态，3s 内再点执行，超时还原）；
+// 已有实际产出（至少一张生成图）的消息走更强的 Modal 确认，避免误删成果
+const confirmingDeleteId = ref<string | null>(null)
+let deleteConfirmTimer: ReturnType<typeof setTimeout> | null = null
+
+function resetDeleteConfirm() {
+  confirmingDeleteId.value = null
+  if (deleteConfirmTimer) {
+    clearTimeout(deleteConfirmTimer)
+    deleteConfirmTimer = null
+  }
+}
+
+function handleDeleteClick(msg: ChatMessage) {
   const msgs = chatStore.activeConversation?.messages || []
   const idx = msgs.findIndex(m => m.id === msg.id)
   const assistant = msgs[idx + 1]
   const imageCount = assistant?.role === 'assistant' ? assistant.generatedImages.length : 0
-  if (imageCount === 0) {
+  if (imageCount > 0) {
+    Modal.confirm({
+      title: t('chat.message.deleteModalTitle'),
+      content: imageCount > 1
+        ? t('chat.message.deleteModalContentPlural', { imageCount })
+        : t('chat.message.deleteModalContentSingle', { imageCount }),
+      okText: t('common.delete'),
+      okType: 'danger',
+      cancelText: t('common.cancel'),
+      onOk: () => chatStore.deleteMessage(msg.id),
+    })
+    return
+  }
+  if (confirmingDeleteId.value === msg.id) {
+    resetDeleteConfirm()
     chatStore.deleteMessage(msg.id)
     return
   }
-  Modal.confirm({
-    title: t('chat.message.deleteModalTitle'),
-    content: imageCount > 1
-      ? t('chat.message.deleteModalContentPlural', { imageCount })
-      : t('chat.message.deleteModalContentSingle', { imageCount }),
-    okText: t('common.delete'),
-    okType: 'danger',
-    cancelText: t('common.cancel'),
-    onOk: () => chatStore.deleteMessage(msg.id),
-  })
+  resetDeleteConfirm()
+  confirmingDeleteId.value = msg.id
+  deleteConfirmTimer = setTimeout(resetDeleteConfirm, 3000)
 }
 
-// 消息变化时滚动到底部；同一会话内删除消息（变短）不滚，保持当前阅读位置
+// 消息变化时滚动到底部：只在切换会话或新增消息时滚；同一会话内删除消息（变短）不滚，保持阅读位置。
+// 生成完成等状态变化不再跳转——完成时骨架移除内容缩短，浏览器会把滚动位置自然钳在底部，
+// 阅读历史的用户则完全不受打扰（由队列开关闪烁代为提示）
 watch(
   () => [
     chatStore.activeConversationId,
     chatStore.activeConversation?.messages.length,
-    chatStore.activeConversation?.messages[chatStore.activeConversation.messages.length - 1]?.status,
   ],
   async ([convId, newLen], [oldConvId, oldLen]) => {
     if (convId === oldConvId && (newLen ?? 0) < (oldLen ?? 0)) return
@@ -509,10 +645,8 @@ watch(
 
 .message-row {
   margin-bottom: 28px;
-  /* 长对话优化：浏览器跳过屏幕外消息行的布局/绘制，打开长会话与滚动时显著减负。
-     contain-intrinsic-size 给未渲染行一个占位高度估计，auto 表示渲染过后记住实际高度，减少滚动跳动 */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 280px;
+  /* 不用 content-visibility 跳渲染：屏幕外的行在快速滚动时要同步补 style/layout/paint，
+     补不上的窗口期就是白屏。滚动查看体验优先（见 AGENTS.md） */
 }
 
 /* ---------- 用户消息 ---------- */
@@ -569,6 +703,14 @@ watch(
   margin-bottom: 8px;
 }
 
+.ref-img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: zoom-in;
+}
+
 /* 编辑入口：气泡下方，悬停整行时出现 */
 .msg-actions {
   display: flex;
@@ -604,6 +746,13 @@ watch(
 
 .delete-btn:hover {
   color: #ff4d4f;
+}
+
+/* 两步确认态：红底白字，3s 内再点一次执行删除 */
+.delete-btn.confirming,
+.delete-btn.confirming:hover {
+  background: #ff4d4f;
+  color: #fff;
 }
 
 .edit-actions {
@@ -735,22 +884,18 @@ watch(
   width: min(360px, 100%);
 }
 
-.generated-image-card :deep(.ant-image) {
+.gen-img {
   display: block;
-  width: 100%;
-}
-
-.generated-image-card :deep(.ant-image-img) {
   width: 100%;
   border-radius: var(--img-radius);
   border: 1px solid var(--img-border);
-  display: block;
+  cursor: zoom-in;
 }
 
-/* 隐藏 antd 自带的悬停遮罩（保留点击预览），避免与浮层按钮叠加 */
-.generated-image-card :deep(.ant-image-mask),
-.ref-images :deep(.ant-image-mask) {
-  display: none;
+/* 屏幕外销毁后的占位：保持尺寸与边框轮廓，回到视口前图片已重挂，基本不会被看到 */
+.img-placeholder {
+  cursor: default;
+  background: var(--shimmer-base);
 }
 
 /* 悬停浮层操作：替代之前的工具条按钮 */
@@ -866,8 +1011,23 @@ watch(
 
 .queue-toggle-btn:hover,
 .queue-toggle-btn.active {
-  border-color: var(--addbtn-hover-border);
   color: var(--addbtn-hover-text);
+}
+
+/* 队列任务了结提示：面板关闭时脉冲闪烁（0.5s×4，与 queueBtnBlink 的 2s 定时对应） */
+.queue-toggle-btn.blink {
+  animation: queue-toggle-blink 0.5s ease-in-out 4;
+}
+
+@keyframes queue-toggle-blink {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+  50% {
+    border-color: #1677ff;
+    color: #1677ff;
+    box-shadow: 0 0 0 6px rgba(22, 119, 255, 0.22);
+  }
 }
 
 /* 进行中数量角标 */

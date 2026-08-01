@@ -25,6 +25,7 @@ const messages: MessageSchema = {
     aiSummarizeTooltip: 'Let AI summarize a title from the user messages in this conversation',
     newWindow: 'New Window',
     openInNewWindow: 'Open in New Window',
+    recentLimitHint: 'Showing the latest 20 of {total} conversations',
   },
   chat: {
     input: {
@@ -77,7 +78,7 @@ const messages: MessageSchema = {
       saveSnippetModalTitle: 'Save as Prompt Snippet',
       snippetSaved: 'Saved to prompt snippets',
       editTooltip: 'Edit and resend',
-      deleteConfirm: 'Delete this message and its generated results?',
+      deleteConfirmAgain: 'Click again to confirm deletion',
       referenceTooltip: 'Use this image as a reference',
       paramsTooltip: 'View generation parameters',
       downloadTooltip: 'Download',

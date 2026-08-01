@@ -1,5 +1,18 @@
 # Agent Notes
 
+## UI Component Guidelines
+
+### Components that scale with conversation length must be hand-written
+
+Any component whose instance count grows linearly with the number of messages, images, or conversations (message rows, image cards, per-row action buttons, tooltips, popconfirms) must NOT use antd-vue or other heavy component-library components. Hand-write them with plain HTML/CSS.
+
+- A 200-message conversation would otherwise mount 1000+ Tooltip/Popconfirm instances, each carrying its own reactive state, vnode subtree, and trigger/positioning logic — slowing initial mount and every row re-render.
+- antd-vue is reserved for **singleton** UI: modals, forms, settings pages, one-off inputs. Programmatic singletons (e.g. `Modal.confirm`) are fine.
+
+### Scroll experience takes priority over render-skipping optimizations
+
+Do NOT use `content-visibility: auto` or similar render-skipping techniques on the message list. Skipped rows must be synchronously re-rendered during fast scrolling, and the catch-up window shows as a white flash. Off-screen **image bitmap** unloading (unmounting `<img>` elements with sized placeholders) is fine — text and layout must stay fully rendered.
+
 ## Release Workflow
 
 This project uses a **release branch** model to trigger builds:

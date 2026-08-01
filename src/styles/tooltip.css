@@ -1,0 +1,46 @@
+/* 轻量纯 CSS tooltip：替代 a-tooltip 用于会随列表长度线性增长的场景
+   （消息行、图片卡等，见 AGENTS.md），零组件实例、零 JS。
+   用法：<button :data-tip="$t('...')">
+   修饰符：data-tip-align="end"（右对齐，防右边缘裁切）、data-tip-placement="left"（向左弹） */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--tooltip-bg, rgba(0, 0, 0, 0.78));
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none; /* tooltip 自身不吃 hover，避免边缘闪烁 */
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 20;
+}
+
+[data-tip]:hover::after {
+  opacity: 1;
+}
+
+/* 右对齐：靠容器右边缘的按钮居中弹出会超出，被滚动容器裁掉 */
+[data-tip-align='end']::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+/* 向左弹出：用于列表右边缘的悬浮按钮（等价 antd placement="left"） */
+[data-tip-placement='left']::after {
+  bottom: auto;
+  top: 50%;
+  left: auto;
+  right: calc(100% + 6px);
+  transform: translateY(-50%);
+}

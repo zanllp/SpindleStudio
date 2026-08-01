@@ -22,9 +22,9 @@
       {{ $t('chat.queue.empty') }}
     </div>
 
-    <div v-else class="queue-list">
+    <div v-else class="queue-list" ref="listRef">
       <div
-        v-for="entry in chatStore.genQueue"
+        v-for="entry in displayQueue"
         :key="entry.id"
         class="queue-card"
         @click="emit('jump', entry.convId, entry.messageId)"
@@ -33,7 +33,7 @@
         <div class="queue-thumb" :class="entry.status">
           <img
             v-if="entry.status === 'done' && entry.image"
-            :src="entry.image.url"
+            :src="thumbUrl(entry.image.url, 128)"
             :alt="entry.image.filename"
             loading="lazy"
           />
@@ -56,10 +56,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { ThunderboltOutlined, ClearOutlined, CloseOutlined, CloseCircleFilled, LoadingOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import { useChatStore } from '@/stores/chat'
+import { thumbUrl } from '@/lib/image'
 
 const emit = defineEmits<{ jump: [convId: string, messageId: string] }>()
 
@@ -67,6 +68,17 @@ const chatStore = useChatStore()
 
 const generatingCount = computed(() => chatStore.genQueue.filter(e => e.status === 'generating').length)
 const hasFinished = computed(() => chatStore.genQueue.some(e => e.status !== 'generating'))
+
+// 展示层反转：store 里新条目 unshift 在头部，面板按聊天记录式排序（最新在底部）
+const displayQueue = computed(() => [...chatStore.genQueue].reverse())
+
+// 新条目落到底部时自动滚到底，保持最新可见（清理完成条目导致变短不滚）
+const listRef = ref<HTMLElement | null>(null)
+watch(() => chatStore.genQueue.length, async (len, prev) => {
+  if (len <= (prev ?? 0)) return
+  await nextTick()
+  listRef.value?.scrollTo({ top: listRef.value.scrollHeight })
+})
 
 // 会话标题从列表实时查（改名跟随）；会话被删时条目已同步移除，兜底 '-'
 function convTitle(convId: string): string {

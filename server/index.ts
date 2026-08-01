@@ -2,10 +2,12 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import axios from 'axios'
+import crypto from 'crypto'
 import { promises as fs } from 'fs'
 import path from 'path'
 import dayjs from 'dayjs'
 import dotenv from 'dotenv'
+import sharp from 'sharp'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { HttpProxyAgent } from 'http-proxy-agent'
 import { getConfig, initConfig, saveConfig } from './lib/config'
@@ -649,6 +651,47 @@ app.post('/api/uploads/usage', async (req, res) => {
 })
 
 // ==================== Static files ====================
+
+const THUMB_DIR = path.join(DATA_DIR, '.thumbs')
+
+// On-the-fly resized thumbnails for the chat UI. Generations are 1024x1536+;
+// a long conversation would otherwise make the browser decode hundreds of
+// full-size images (~6 MB each as a bitmap — the main cause of renderer OOM
+// crashes), while the list only displays 72-360px thumbs.
+// Cache key includes mtime so a regenerated file busts the cache automatically.
+app.get('/api/thumb', async (req, res) => {
+  try {
+    const root = String(req.query.root || '')
+    const rel = String(req.query.path || '')
+    const width = Math.min(Math.max(parseInt(String(req.query.w), 10) || 480, 16), 1280)
+    const baseDir = root === 'images' ? SAVE_DIR : root === 'uploads' ? UPLOADS_DIR : null
+    if (!baseDir) return res.status(400).json({ error: 'invalid root' })
+    const abs = path.resolve(baseDir, rel)
+    if (!abs.startsWith(baseDir + path.sep)) return res.status(400).json({ error: 'invalid path' })
+    const stat = await fs.stat(abs).catch(() => null)
+    if (!stat?.isFile()) return res.status(404).json({ error: 'not found' })
+
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+
+    // Tiny files cost more to transcode than to serve as-is
+    if (stat.size < 64 * 1024) return res.sendFile(abs)
+
+    const key = crypto.createHash('md5').update(`${abs}|${stat.mtimeMs}|${width}`).digest('hex')
+    const cachePath = path.join(THUMB_DIR, `${key}.webp`)
+    try {
+      await fs.access(cachePath)
+    } catch {
+      await fs.mkdir(THUMB_DIR, { recursive: true })
+      // Unique tmp name: concurrent requests for the same thumb must not clobber each other
+      const tmpPath = `${cachePath}.${process.pid}-${crypto.randomBytes(4).toString('hex')}.tmp`
+      await sharp(abs).resize({ width, withoutEnlargement: true }).webp({ quality: 78 }).toFile(tmpPath)
+      await fs.rename(tmpPath, cachePath).catch(async () => { await fs.unlink(tmpPath).catch(() => {}) })
+    }
+    res.sendFile(cachePath)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
 
 app.use('/images', express.static(SAVE_DIR))
 app.use('/uploads', express.static(UPLOADS_DIR))

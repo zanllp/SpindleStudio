@@ -25,6 +25,7 @@ const messages = {
     aiSummarizeTooltip: '根据对话中的用户消息，让 AI 概括一个标题',
     newWindow: '新建窗口',
     openInNewWindow: '在新窗口打开',
+    recentLimitHint: '仅展示最近 20 条对话（共 {total} 条）',
   },
   chat: {
     input: {
@@ -77,7 +78,7 @@ const messages = {
       saveSnippetModalTitle: '收录为常用提示词',
       snippetSaved: '已收录到常用提示词',
       editTooltip: '编辑并重新发送',
-      deleteConfirm: '删除该消息及其生成结果？',
+      deleteConfirmAgain: '再次点击确认删除',
       referenceTooltip: '引用此图继续生成',
       paramsTooltip: '查看生成参数',
       downloadTooltip: '下载',

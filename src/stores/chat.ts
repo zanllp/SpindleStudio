@@ -78,6 +78,10 @@ export const useChatStore = defineStore('chat', () => {
   const queueOpen = ref(localStorage.getItem(QUEUE_OPEN_KEY) === '1')
   watch(queueOpen, v => localStorage.setItem(QUEUE_OPEN_KEY, v ? '1' : '0'))
 
+  // 队列任务了结信号：任务成功/失败时自增，供 UI 做轻提示（队列开关闪烁），
+  // 替代之前生成完成时消息列表强制滚到底部的跳转
+  const queueSettleTick = ref(0)
+
   // 登记占位条目（taskId 未绑定）。replace 用于全新生成（清掉同消息旧条目，重试/编辑重发不残留）；
   // append 用于追加生成（保留已有条目）
   function registerQueueEntries(
@@ -118,6 +122,7 @@ export const useChatStore = defineStore('chat', () => {
       entry.status = 'done'
       entry.image = image || undefined
     }
+    queueSettleTick.value++
   }
 
   // 提交失败等场景：把仍在生成中的占位条目标记为失败
@@ -125,6 +130,7 @@ export const useChatStore = defineStore('chat', () => {
     for (const e of entries) {
       if (e.status === 'generating') e.status = 'error'
     }
+    queueSettleTick.value++
   }
 
   function clearFinishedQueue() {
@@ -723,6 +729,7 @@ export const useChatStore = defineStore('chat', () => {
     setDraftPrompt,
     genQueue,
     queueOpen,
+    queueSettleTick,
     clearFinishedQueue,
     addPendingReference,
     addPendingUpload,
