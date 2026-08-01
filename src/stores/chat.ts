@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { message } from 'ant-design-vue'
 import type {
   Conversation,
   ConversationSummary,
   ChatMessage,
+  ChatGeneratedImage,
   ChatReferenceImage,
+  GenerationQueueEntry,
 } from '@/types'
 import api from '@/api'
 import { useSettingsStore } from '@/stores/settings'
@@ -63,6 +65,70 @@ export const useChatStore = defineStore('chat', () => {
     if (referenceImages && referenceImages.length > 0) {
       pendingReferenceImages.value = referenceImages.map(r => ({ ...r, id: genId('ref') }))
     }
+  }
+
+  // ==================== 生成队列（session 级，辅助查看） ====================
+
+  // 每张图片一个条目：提交前插入占位，拿到 taskIds 后绑定，任务了结时更新状态。
+  // 刷新即清空（丢失可接受）
+  const genQueue = ref<GenerationQueueEntry[]>([])
+
+  // 面板开合是 UI 偏好（非队列数据），持久化保留
+  const QUEUE_OPEN_KEY = 'app_queue_open'
+  const queueOpen = ref(localStorage.getItem(QUEUE_OPEN_KEY) === '1')
+  watch(queueOpen, v => localStorage.setItem(QUEUE_OPEN_KEY, v ? '1' : '0'))
+
+  // 登记占位条目（taskId 未绑定）。replace 用于全新生成（清掉同消息旧条目，重试/编辑重发不残留）；
+  // append 用于追加生成（保留已有条目）
+  function registerQueueEntries(
+    conv: Conversation,
+    assistantMessage: ChatMessage,
+    count: number,
+    mode: 'replace' | 'append',
+  ): GenerationQueueEntry[] {
+    if (mode === 'replace') {
+      genQueue.value = genQueue.value.filter(e => !(e.convId === conv.id && e.messageId === assistantMessage.id))
+    }
+    const entries: GenerationQueueEntry[] = Array.from({ length: count }, () => ({
+      id: genId('q'),
+      convId: conv.id,
+      messageId: assistantMessage.id,
+      prompt: assistantMessage.prompt,
+      status: 'generating' as const,
+      startedAt: Date.now(),
+    }))
+    genQueue.value.unshift(...entries)
+    return entries
+  }
+
+  function bindQueueTasks(entries: GenerationQueueEntry[], taskIds: string[]) {
+    entries.forEach((e, i) => {
+      if (taskIds[i]) e.taskId = taskIds[i]
+    })
+  }
+
+  // 任务了结时更新对应条目（resume 的任务无条目，自然跳过）
+  function settleQueueEntry(taskId: string, image: ChatGeneratedImage | null, error: string | null) {
+    const entry = genQueue.value.find(e => e.taskId === taskId)
+    if (!entry) return
+    if (error) {
+      entry.status = 'error'
+      entry.error = error
+    } else {
+      entry.status = 'done'
+      entry.image = image || undefined
+    }
+  }
+
+  // 提交失败等场景：把仍在生成中的占位条目标记为失败
+  function failQueueEntries(entries: GenerationQueueEntry[]) {
+    for (const e of entries) {
+      if (e.status === 'generating') e.status = 'error'
+    }
+  }
+
+  function clearFinishedQueue() {
+    genQueue.value = genQueue.value.filter(e => e.status === 'generating')
   }
 
   // ==================== 持久化 ====================
@@ -155,6 +221,7 @@ export const useChatStore = defineStore('chat', () => {
     await api.deleteConversation(id)
     dirtyConvIds.delete(id)
     conversationList.value = conversationList.value.filter(c => c.id !== id)
+    genQueue.value = genQueue.value.filter(e => e.convId !== id)
     if (activeConversationId.value === id) {
       activeConversation.value = null
       pendingReferenceImages.value = []
@@ -403,8 +470,10 @@ export const useChatStore = defineStore('chat', () => {
       if (error) {
         assistantMessage.failedCount = (assistantMessage.failedCount || 0) + 1
         assistantMessage.partialError = t('errors.partialFailed', { failedCount: assistantMessage.failedCount, count, error })
+        settleQueueEntry(taskId, null, error)
       } else if (result && result.images.length > 0) {
         const generationTime = (Date.now() - startTime) / 1000
+        const baseIdx = assistantMessage.generatedImages.length
         for (const img of result.images) {
           assistantMessage.generatedImages.push({
             id: genId('img'),
@@ -417,6 +486,7 @@ export const useChatStore = defineStore('chat', () => {
             metadata: result.metadata,
           })
         }
+        settleQueueEntry(taskId, assistantMessage.generatedImages[baseIdx], null)
       }
       persistConvDebounced(conv)
     })
@@ -444,6 +514,7 @@ export const useChatStore = defineStore('chat', () => {
   async function generateForMessage(conv: Conversation, userMessage: ChatMessage, assistantMessage: ChatMessage) {
     const startTime = Date.now()
     const count = assistantMessage.count || 1
+    const queueEntries = registerQueueEntries(conv, assistantMessage, count, 'replace')
     try {
       // 记录本次实际使用的供应商/模型（重试/再生成可能发生在切换选择之后）
       const { provider, model } = settingsStore.effectiveSelection
@@ -456,11 +527,13 @@ export const useChatStore = defineStore('chat', () => {
       assistantMessage.failedCount = undefined
       assistantMessage.generatedImages = []
       const taskIds = await submitGenerations(userMessage, count)
+      bindQueueTasks(queueEntries, taskIds)
       // 先落盘 task_id：此时刷新页面也能恢复轮询
       assistantMessage.taskIds = taskIds
       persistConvDebounced(conv)
       await runGenerationTasks(conv, userMessage, assistantMessage, taskIds, false, startTime)
     } catch (error: any) {
+      failQueueEntries(queueEntries)
       assistantMessage.status = 'error'
       assistantMessage.taskIds = undefined
       assistantMessage.taskId = undefined
@@ -554,13 +627,17 @@ export const useChatStore = defineStore('chat', () => {
       assistantMessage.failedCount = undefined
     }
     assistantMessage.status = 'generating'
+    // 追加生成：每张图一个队列条目，保留同消息已有条目
+    const queueEntries = registerQueueEntries(conv, assistantMessage, 1, 'append')
     try {
       const taskIds = await submitGenerations(userMessage, 1)
+      bindQueueTasks(queueEntries, taskIds)
       // 并入待轮询列表（原任务 id 必须保留），先落盘再轮询
       assistantMessage.taskIds = [...(assistantMessage.taskIds || []), ...taskIds]
       persistConvDebounced(conv)
       await runGenerationTasks(conv, userMessage, assistantMessage, taskIds, false, startTime)
     } catch (error: any) {
+      failQueueEntries(queueEntries)
       const msg = error.response?.data?.error || error.message || t('errors.generationFailed')
       if ((assistantMessage.taskIds || []).length > 0) {
         // 原任务仍在生成（多为提交失败）：仅回退本次追加的计数
@@ -592,9 +669,14 @@ export const useChatStore = defineStore('chat', () => {
     const idx = conv.messages.findIndex(m => m.id === userMessageId)
     if (idx < 0 || conv.messages[idx].role !== 'user') return
     // 成对删除：user 后面紧跟的 assistant 一并清掉
-    const removeCount = conv.messages[idx + 1]?.role === 'assistant' ? 2 : 1
+    const assistantMsg = conv.messages[idx + 1]?.role === 'assistant' ? conv.messages[idx + 1] : null
+    const removeCount = assistantMsg ? 2 : 1
     conv.messages.splice(idx, removeCount)
     resumedMessageIds.delete(userMessageId)
+    // 已删消息的队列卡片一并移除（在途轮询仍持有旧对象，但不再展示）
+    if (assistantMsg) {
+      genQueue.value = genQueue.value.filter(e => e.messageId !== assistantMsg.id)
+    }
     persistConvDebounced(conv)
   }
 
@@ -639,6 +721,9 @@ export const useChatStore = defineStore('chat', () => {
     summarizeTitle,
     draftPrompt,
     setDraftPrompt,
+    genQueue,
+    queueOpen,
+    clearFinishedQueue,
     addPendingReference,
     addPendingUpload,
     removePendingReference,

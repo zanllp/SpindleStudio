@@ -105,6 +105,15 @@ const messages: MessageSchema = {
         filename: 'Filename',
       },
     },
+    queue: {
+      title: 'Generation Queue',
+      empty: 'No generation tasks yet',
+      clearFinished: 'Clear finished',
+      toggleTooltip: 'Generation queue',
+      status_generating: 'Generating…',
+      status_done: 'Done',
+      status_error: 'Failed',
+    },
   },
   settings: {
     title: 'Settings',

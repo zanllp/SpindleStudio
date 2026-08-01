@@ -1,5 +1,19 @@
 <template>
   <div ref="listRef" class="chat-message-list" @scroll.passive="handleScroll">
+    <!-- 生成队列开关：sticky 悬浮在列表可视区右上角 -->
+    <div class="queue-toggle-anchor">
+      <a-tooltip :title="$t('chat.queue.toggleTooltip')" placement="left">
+        <button
+          class="queue-toggle-btn"
+          :class="{ active: chatStore.queueOpen }"
+          @click="chatStore.queueOpen = !chatStore.queueOpen"
+        >
+          <UnorderedListOutlined />
+          <span v-if="queueGeneratingCount > 0" class="queue-badge">{{ queueGeneratingCount }}</span>
+        </button>
+      </a-tooltip>
+    </div>
+
     <div class="messages-column">
       <div v-if="!chatStore.activeConversation" class="empty-state">
         <PictureOutlined class="empty-icon" />
@@ -16,6 +30,7 @@
         <div
           v-for="msg in chatStore.activeConversation.messages"
           :key="msg.id"
+          :id="`msg-${msg.id}`"
           class="message-row"
           :class="msg.role"
         >
@@ -244,7 +259,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import {
   LinkOutlined,
   DownloadOutlined,
@@ -260,6 +275,7 @@ import {
   DeleteOutlined,
   ArrowDownOutlined,
   BookOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -288,6 +304,21 @@ function scrollToBottom() {
   if (!el) return
   el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
 }
+
+// ==================== 生成队列 ====================
+
+const queueGeneratingCount = computed(() => chatStore.genQueue.filter(e => e.status === 'generating').length)
+
+// 队列卡片跳转：滚动到指定消息并短暂高亮（供 ChatPanel 调用）
+function scrollToMessage(msgId: string) {
+  const el = listRef.value?.querySelector(`#msg-${CSS.escape(msgId)}`) as HTMLElement | null
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  el.classList.add('msg-highlight')
+  setTimeout(() => el.classList.remove('msg-highlight'), 1600)
+}
+
+defineExpose({ scrollToMessage })
 
 // ==================== 原地编辑 ====================
 
@@ -804,6 +835,67 @@ watch(
   bottom: 12px;
   height: 0;
   z-index: 10;
+}
+
+/* 生成队列开关：sticky 悬浮在可视区右上角（同 scroll-bottom-anchor 模式） */
+.queue-toggle-anchor {
+  position: sticky;
+  top: 12px;
+  height: 0;
+  z-index: 10;
+}
+
+.queue-toggle-btn {
+  position: absolute;
+  top: 0;
+  right: 24px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--addbtn-border);
+  border-radius: 50%;
+  background: var(--addbtn-bg);
+  color: var(--addbtn-text);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.queue-toggle-btn:hover,
+.queue-toggle-btn.active {
+  border-color: var(--addbtn-hover-border);
+  color: var(--addbtn-hover-text);
+}
+
+/* 进行中数量角标 */
+.queue-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #1677ff;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* 队列跳转定位：整行背景短暂高亮 */
+.message-row.msg-highlight {
+  border-radius: 12px;
+  animation: msg-flash 1.6s ease-out;
+}
+
+@keyframes msg-flash {
+  0% { background-color: rgba(22, 119, 255, 0.16); }
+  100% { background-color: transparent; }
 }
 
 .scroll-bottom-btn {

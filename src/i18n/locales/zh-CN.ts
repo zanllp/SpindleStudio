@@ -105,6 +105,15 @@ const messages = {
         filename: '文件名',
       },
     },
+    queue: {
+      title: '生成队列',
+      empty: '暂无生成任务',
+      clearFinished: '清除已完成',
+      toggleTooltip: '生成队列',
+      status_generating: '生成中…',
+      status_done: '已完成',
+      status_error: '生成失败',
+    },
   },
   settings: {
     title: '设置',

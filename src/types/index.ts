@@ -152,6 +152,20 @@ export interface ConversationSummary {
   updatedAt: number
 }
 
+// Generation queue entry (session-scoped): one entry per image task.
+// taskId is bound after submit; image is attached when the task completes
+export interface GenerationQueueEntry {
+  id: string
+  convId: string
+  messageId: string
+  taskId?: string
+  prompt: string
+  status: 'generating' | 'done' | 'error'
+  image?: ChatGeneratedImage
+  error?: string
+  startedAt: number
+}
+
 // Upload history item (cross-conversation reference image pool)
 export interface UploadHistoryItem {
   url: string
