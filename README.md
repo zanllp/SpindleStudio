@@ -33,6 +33,10 @@ If you have used all-in-one clients like Cherry Studio, think of SpindleStudio a
 - Batch generation (1–8 images) with progressive per-image rendering
 - "Generate one more" on any previous result to append a variant instantly
 - In-place prompt edit & resend, backfill to input box, delete, retry
+- Generation queue panel — per-image status of every task across all conversations; click a card to jump to its message
+- Prompt snippet library — bookmark a prompt from any message, insert it from the input box, manage in Settings
+- Long conversations stay smooth — scroll hundreds of image messages without lag; completed generations pulse the queue button instead of yanking you to the bottom
+- Sidebar keeps the 20 most recent conversations so the list stays fast
 - Generation controls: auto + 13 aspect-ratio presets, 1K / 2K / 4K resolution (4K widescreen-only)
 - EXIF metadata baked into every image — prompt, dimensions and model in SD WebUI–compatible format, ready for tools like [Infinite Image Browsing](https://github.com/zanllp/sd-webui-infinite-image-browsing)
 - Upload history sorted by usage frequency for one-click reuse of reference images
