@@ -130,7 +130,7 @@ html[data-theme='frutiger-aero'] {
   /* 生成的 Frutiger Aero 壁纸 + 一层白色薄纱保证玻璃面板对比度；末尾渐变是图片加载失败时的兜底 */
   --page-bg:
     linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    url('/backgrounds/bg-frutiger-aero.jpg'),
+    url('/backgrounds/bg-frutiger-aero-2.jpg'),
     linear-gradient(180deg, #a9d9f2 0%, #cfe9f7 38%, #dff0e4 100%);
 
   --header-bg: rgba(255, 255, 255, 0.55);
@@ -214,6 +214,13 @@ html[data-theme='frutiger-aero'] {
   --addbtn-text: #4a8ab0;
   --addbtn-hover-border: #2f8fce;
   --addbtn-hover-text: #2f8fce;
+  --addbtn-glow: rgba(110, 190, 235, 0.55);
+
+  /* 生成队列卡片：Aero 白玻璃，高光描边 + 浅蓝辉光 */
+  --queuecard-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.38) 100%);
+  --queuecard-border: rgba(255, 255, 255, 0.8);
+  --queuecard-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 2px 10px rgba(46, 116, 160, 0.18);
+  --queuecard-hover-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.52) 100%);
 
   --img-border: rgba(255, 255, 255, 0.8);
   --img-radius: 14px;
@@ -292,13 +299,14 @@ html[data-theme='vista'] {
   --bubble-shadow: inset 0 1px 0 #ffffff, 0 1px 3px rgba(40, 70, 100, 0.18);
   --bubble-text-shadow: none;
 
-  --input-bg: #ffffff;
-  --input-border: #98a7b5;
+  /* 输入卡片：Aero 白玻璃 —— 微渐变 + 顶部内高光 + 蓝色辉光，与设置窗/气泡同一配方 */
+  --input-bg: linear-gradient(180deg, #fbfdff 0%, #e8f1f9 100%);
+  --input-border: rgba(140, 190, 235, 0.55);
   --input-radius: 6px;
-  --input-shadow: 0 1px 4px rgba(30, 50, 70, 0.12);
+  --input-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 16px rgba(90, 150, 210, 0.3), 0 4px 14px rgba(10, 30, 60, 0.35);
   --input-blur: none;
-  --input-focus-border: #5f9cc9;
-  --input-focus-shadow: 0 0 6px rgba(95, 156, 201, 0.55);
+  --input-focus-border: rgba(120, 180, 235, 0.9);
+  --input-focus-shadow: 0 0 0 2px rgba(95, 156, 201, 0.35), 0 0 22px rgba(95, 156, 201, 0.55);
 
   --iconbtn-text: #8a97a3;
   --iconbtn-hover-bg: rgba(31, 111, 178, 0.1);
@@ -317,14 +325,31 @@ html[data-theme='vista'] {
   --send-disabled-bg: #dde3e9;
   --send-disabled-text: #a3adb8;
 
-  --addbtn-bg: #fff;
-  --addbtn-border: #c4cfda;
-  --addbtn-text: #8a97a3;
-  --addbtn-hover-border: #1f6fb2;
-  --addbtn-hover-text: #1f6fb2;
+  --addbtn-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(0, 0, 0, 0.15) 100%);
+  --addbtn-border: rgba(255, 255, 255, 0.3);
+  --addbtn-text: #c8d6e2;
+  --addbtn-hover-border: rgba(190, 225, 250, 0.8);
+  --addbtn-hover-text: #eaf3fb;
+  --addbtn-glow: rgba(120, 185, 240, 0.5);
 
-  --img-border: #d8e0e8;
+  /* 生成队列卡片：暗玻璃 + 顶部高光，贴合 Aurora 的晶莹感 */
+  --queuecard-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0.1) 100%);
+  --queuecard-border: rgba(255, 255, 255, 0.22);
+  --queuecard-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --queuecard-hover-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.09) 50%, rgba(0, 0, 0, 0.06) 100%);
+
+  --img-border: rgba(255, 255, 255, 0.32);
   --img-radius: 6px;
+
+  /* 错误/警告：深色极光底上的半透明色调玻璃，替代浅色警报贴纸 */
+  --error-bg: rgba(255, 77, 79, 0.13);
+  --error-border: rgba(255, 115, 115, 0.42);
+  --error-icon: #ff8585;
+  --error-title: #ffb3b3;
+  --error-desc: rgba(255, 205, 205, 0.62);
+  --warn-bg: rgba(255, 197, 61, 0.12);
+  --warn-border: rgba(255, 214, 102, 0.38);
+  --warn-text: #ecd489;
 
   --shimmer-base: #e6ecf1;
   --shimmer-hl: #f2f6fa;

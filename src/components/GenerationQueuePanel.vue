@@ -164,7 +164,7 @@ function formatTime(ts: number): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-faint);
+  color: var(--sider-faint);
   font-size: 13px;
   padding: 24px;
   text-align: center;
@@ -176,20 +176,27 @@ function formatTime(ts: number): string {
   padding: 8px;
 }
 
+/* 队列面板渲染在 --sider-bg 上，颜色一律走 --sider-* 变量族；
+   用主区变量（--text-primary 等）在 Vista 这类深侧栏主题下会暗字压暗底、浅边框泛白 */
 .queue-card {
   display: flex;
   gap: 10px;
   padding: 10px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--queuecard-border, var(--sider-border));
   border-radius: 10px;
   margin-bottom: 8px;
   cursor: pointer;
+  /* 玻璃主题（Frutiger/Vista）用 --queuecard-* 注入晶莹质感，未定义的主题回退透明平卡 */
+  background: var(--queuecard-bg, transparent);
+  box-shadow: var(--queuecard-shadow, none);
+  backdrop-filter: var(--queuecard-blur, none);
+  -webkit-backdrop-filter: var(--queuecard-blur, none);
   transition: border-color 0.15s, background 0.15s;
 }
 
 .queue-card:hover {
-  border-color: var(--border-strong);
-  background: var(--sider-item-hover);
+  border-color: var(--sider-icon);
+  background: var(--queuecard-hover-bg, var(--sider-item-hover));
 }
 
 /* 缩略图：完成显示图片 / 生成中 shimmer 骨架 / 失败红底错误标 */
@@ -199,7 +206,7 @@ function formatTime(ts: number): string {
   flex-shrink: 0;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--sider-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -215,12 +222,13 @@ function formatTime(ts: number): string {
   background: linear-gradient(100deg, var(--shimmer-base) 40%, var(--shimmer-hl) 50%, var(--shimmer-base) 60%);
   background-size: 200% 100%;
   animation: queue-shimmer 1.4s infinite linear;
-  color: var(--text-faint);
+  color: var(--sider-faint);
 }
 
+/* 半透明红：浅色与深色侧栏背景上都成立 */
 .queue-thumb.error {
-  background: #fff2f0;
-  border-color: #ffccc7;
+  background: rgba(255, 77, 79, 0.12);
+  border-color: rgba(255, 77, 79, 0.35);
   color: #ff4d4f;
 }
 
@@ -254,12 +262,12 @@ function formatTime(ts: number): string {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--sider-icon);
 }
 
 .queue-time {
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--sider-faint);
   flex-shrink: 0;
 }
 
@@ -267,7 +275,7 @@ function formatTime(ts: number): string {
   margin-top: 2px;
   font-size: 13px;
   line-height: 1.4;
-  color: var(--text-primary);
+  color: var(--sider-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;

@@ -820,15 +820,15 @@ watch(
   font-size: 13px;
 }
 
-/* 失败：轻量内联错误块 */
+/* 失败：轻量内联错误块（默认浅色警报；深色玻璃主题用 --error-* 覆盖） */
 .error-box {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   max-width: 560px;
   padding: 12px 14px;
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
+  background: var(--error-bg, #fff2f0);
+  border: 1px solid var(--error-border, #ffccc7);
   border-radius: 10px;
 }
 
@@ -837,15 +837,15 @@ watch(
   max-width: 560px;
   margin-bottom: 8px;
   padding: 8px 12px;
-  background: #fffbe6;
-  border: 1px solid #ffe58f;
+  background: var(--warn-bg, #fffbe6);
+  border: 1px solid var(--warn-border, #ffe58f);
   border-radius: 10px;
-  color: #ad6800;
+  color: var(--warn-text, #ad6800);
   font-size: 13px;
 }
 
 .error-icon {
-  color: #ff4d4f;
+  color: var(--error-icon, #ff4d4f);
   margin-top: 2px;
 }
 
@@ -857,12 +857,12 @@ watch(
 .error-title {
   font-size: 13px;
   font-weight: 500;
-  color: #cf1322;
+  color: var(--error-title, #cf1322);
 }
 
 .error-desc {
   font-size: 12px;
-  color: #999;
+  color: var(--error-desc, #999);
   margin-top: 2px;
   word-break: break-word;
 }
@@ -1012,6 +1012,11 @@ watch(
 .queue-toggle-btn:hover,
 .queue-toggle-btn.active {
   color: var(--addbtn-hover-text);
+}
+
+/* active（面板已打开）：加一圈主题辉光与常态区分 */
+.queue-toggle-btn.active {
+  box-shadow: 0 0 10px var(--addbtn-glow, rgba(22, 119, 255, 0.4));
 }
 
 /* 队列任务了结提示：面板关闭时脉冲闪烁（0.5s×4，与 queueBtnBlink 的 2s 定时对应） */
