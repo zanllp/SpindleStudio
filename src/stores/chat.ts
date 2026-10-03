@@ -5,6 +5,7 @@ import { message } from 'ant-design-vue'
 import type {
   Conversation,
   ConversationSummary,
+  ConversationFavorite,
   ChatMessage,
   ChatGeneratedImage,
   ChatReferenceImage,
@@ -176,6 +177,76 @@ export const useChatStore = defineStore('chat', () => {
 
   function clearFinishedQueue() {
     genQueue.value = genQueue.value.filter(e => e.status === 'generating')
+  }
+
+  // ==================== 会话内收藏（query / resp） ====================
+
+  // 收藏数据挂在会话文档上（Conversation.favorites），随会话一起落盘。
+  // 切到别的会话就看不到、也不会被别的会话引用 —— 只在当前会话可见。
+  const FAVORITES_OPEN_KEY = 'app_favorites_open'
+  const favoritesOpen = ref(localStorage.getItem(FAVORITES_OPEN_KEY) === '1')
+  watch(favoritesOpen, v => localStorage.setItem(FAVORITES_OPEN_KEY, v ? '1' : '0'))
+
+  const favorites = computed<ConversationFavorite[]>(() => activeConversation.value?.favorites || [])
+
+  function isFavorited(messageId: string): boolean {
+    return favorites.value.some(f => f.messageId === messageId)
+  }
+
+  function addFavorite(favorite: Omit<ConversationFavorite, 'id' | 'createdAt'>) {
+    const conv = activeConversation.value
+    if (!conv) return
+    if (!conv.favorites) conv.favorites = []
+    if (conv.favorites.some(f => f.messageId === favorite.messageId)) return
+    conv.favorites.unshift({ ...favorite, id: genId('fav'), createdAt: Date.now() })
+    persistConvDebounced(conv)
+  }
+
+  function removeFavorite(id: string) {
+    const conv = activeConversation.value
+    if (!conv?.favorites) return
+    conv.favorites = conv.favorites.filter(f => f.id !== id)
+    persistConvDebounced(conv)
+  }
+
+  // 收藏用户提示词（query）：同一消息已收藏则取消
+  function toggleQueryFavorite(userMessageId: string) {
+    const conv = activeConversation.value
+    if (!conv) return
+    const msg = conv.messages.find(m => m.id === userMessageId)
+    if (!msg || msg.role !== 'user') return
+    const existing = conv.favorites?.find(f => f.messageId === userMessageId)
+    if (existing) {
+      removeFavorite(existing.id)
+      return
+    }
+    addFavorite({
+      type: 'query',
+      text: msg.prompt,
+      messageId: userMessageId,
+      referenceImages: msg.referenceImages.map(r => ({ ...r })),
+    })
+  }
+
+  // 收藏生成结果（resp）：把该轮生成图片的 url 快照一并存下，便于在收藏面板里预览
+  function toggleRespFavorite(assistantMessageId: string) {
+    const conv = activeConversation.value
+    if (!conv) return
+    const idx = conv.messages.findIndex(m => m.id === assistantMessageId)
+    const msg = conv.messages[idx]
+    if (!msg || msg.role !== 'assistant') return
+    const existing = conv.favorites?.find(f => f.messageId === assistantMessageId)
+    if (existing) {
+      removeFavorite(existing.id)
+      return
+    }
+    const userMessage = conv.messages[idx - 1]
+    addFavorite({
+      type: 'resp',
+      text: msg.prompt || (userMessage?.role === 'user' ? userMessage.prompt : ''),
+      messageId: assistantMessageId,
+      images: msg.generatedImages.map(i => i.url),
+    })
   }
 
   // ==================== 持久化 ====================
@@ -728,6 +799,11 @@ export const useChatStore = defineStore('chat', () => {
     if (assistantMsg) {
       genQueue.value = genQueue.value.filter(e => e.messageId !== assistantMsg.id)
     }
+    // 被删消息对应的收藏一并清掉（响应式数组按引用重建，不直接改原对象引用也行）
+    const removedIds = new Set([userMessageId, assistantMsg?.id])
+    if (conv.favorites?.length) {
+      conv.favorites = conv.favorites.filter(f => !removedIds.has(f.messageId))
+    }
     persistConvDebounced(conv)
   }
 
@@ -745,6 +821,10 @@ export const useChatStore = defineStore('chat', () => {
 
     userMessage.prompt = trimmed
     assistantMessage.prompt = trimmed
+    // 已收藏的提示词/结果跟随编辑后的文本
+    for (const fav of conv.favorites || []) {
+      if (fav.messageId === userMessageId || fav.messageId === assistantMessage.id) fav.text = trimmed
+    }
     assistantMessage.status = 'generating'
     assistantMessage.error = undefined
     assistantMessage.generatedImages = []
@@ -777,6 +857,12 @@ export const useChatStore = defineStore('chat', () => {
     queueOpen,
     queueSettleTick,
     clearFinishedQueue,
+    favoritesOpen,
+    favorites,
+    isFavorited,
+    removeFavorite,
+    toggleQueryFavorite,
+    toggleRespFavorite,
     addPendingReference,
     addPendingUpload,
     removePendingReference,

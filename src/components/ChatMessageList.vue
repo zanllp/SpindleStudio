@@ -12,6 +12,16 @@
         <UnorderedListOutlined />
         <span v-if="queueGeneratingCount > 0" class="queue-badge">{{ queueGeneratingCount }}</span>
       </button>
+      <button
+        class="queue-toggle-btn fav-toggle-btn"
+        :class="{ active: chatStore.favoritesOpen }"
+        :data-tip="$t('chat.favorites.toggleTooltip')"
+        data-tip-placement="left"
+        @click="chatStore.favoritesOpen = !chatStore.favoritesOpen"
+      >
+        <StarOutlined />
+        <span v-if="favoriteCount > 0" class="queue-badge">{{ favoriteCount }}</span>
+      </button>
     </div>
 
     <div class="messages-column">
@@ -66,10 +76,29 @@
                     <div v-else class="ref-img img-placeholder" />
                   </template>
                 </div>
-                <div class="prompt-text">{{ msg.prompt }}</div>
+                <div
+                  class="prompt-text"
+                  :class="{ collapsed: isLongPrompt(msg) && !expandedPrompts.has(msg.id) }"
+                >{{ msg.prompt }}</div>
+                <button
+                  v-if="isLongPrompt(msg)"
+                  class="prompt-toggle"
+                  @click="togglePromptExpanded(msg.id)"
+                >
+                  {{ expandedPrompts.has(msg.id) ? $t('chat.message.collapsePrompt') : $t('chat.message.expandPrompt') }}
+                </button>
               </template>
             </div>
             <div v-if="editingId !== msg.id" class="msg-actions">
+              <button
+                class="icon-btn fav-btn"
+                :class="{ favorited: chatStore.isFavorited(msg.id) }"
+                :data-tip="chatStore.isFavorited(msg.id) ? $t('chat.message.favoriteQueryActive') : $t('chat.message.favoriteQuery')"
+                @click="chatStore.toggleQueryFavorite(msg.id)"
+              >
+                <StarFilled v-if="chatStore.isFavorited(msg.id)" />
+                <StarOutlined v-else />
+              </button>
               <button class="icon-btn" :data-tip="$t('chat.message.fillBack')" @click="chatStore.setDraftPrompt(msg.prompt, msg.referenceImages)">
                 <RollbackOutlined />
               </button>
@@ -164,6 +193,22 @@
                 <div class="error-desc">{{ msg.error }}</div>
               </div>
               <AppButton size="small" @click="chatStore.retryMessage(msg.id)">{{ $t('common.retry') }}</AppButton>
+            </div>
+
+            <!-- 结果操作：收藏本轮生成结果 / 复制本轮提示词 -->
+            <div v-if="msg.status !== 'generating' || msg.generatedImages.length > 0" class="assistant-actions">
+              <button
+                class="icon-btn fav-btn"
+                :class="{ favorited: chatStore.isFavorited(msg.id) }"
+                :data-tip="chatStore.isFavorited(msg.id) ? $t('chat.message.favoriteRespActive') : $t('chat.message.favoriteResp')"
+                @click="chatStore.toggleRespFavorite(msg.id)"
+              >
+                <StarFilled v-if="chatStore.isFavorited(msg.id)" />
+                <StarOutlined v-else />
+              </button>
+              <button class="icon-btn" :data-tip="$t('chat.message.copyPrompt')" @click="copyPrompt(msg.prompt)">
+                <CopyOutlined />
+              </button>
             </div>
           </div>
         </div>
@@ -285,6 +330,8 @@ import {
   ArrowDownOutlined,
   BookOutlined,
   UnorderedListOutlined,
+  StarOutlined,
+  StarFilled,
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -390,7 +437,30 @@ function setRowRef(el: Element | null, id: string) {
 watch(() => chatStore.activeConversationId, () => {
   destroyedRows.clear()
   imgDims.clear()
+  expandedPrompts.clear()
 })
+
+// ==================== 长提示词折叠 ====================
+// 超过约 10 行（按显式换行 + 估算折行）默认折叠，只显示前 10 行的视高。
+// 估算不追求精确：气泡最大宽约 600px、字号 15px，一行大致 42 个全角字符。
+const PROMPT_COLLAPSE_LINES = 10
+const CHARS_PER_LINE = 42
+
+// 展开状态只存在于本次浏览，不落盘；切换会话即复位
+const expandedPrompts = reactive(new Set<string>())
+
+function estimatePromptLines(text: string): number {
+  return text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / CHARS_PER_LINE)), 0)
+}
+
+function isLongPrompt(msg: ChatMessage): boolean {
+  return estimatePromptLines(msg.prompt) > PROMPT_COLLAPSE_LINES
+}
+
+function togglePromptExpanded(id: string) {
+  if (expandedPrompts.has(id)) expandedPrompts.delete(id)
+  else expandedPrompts.add(id)
+}
 
 // ==================== 回到底部 ====================
 
@@ -411,6 +481,9 @@ function scrollToBottom() {
 // ==================== 生成队列 ====================
 
 const queueGeneratingCount = computed(() => chatStore.genQueue.filter(e => e.status === 'generating').length)
+
+// 当前会话收藏数（收藏跟随会话存储，切会话即随之变化）
+const favoriteCount = computed(() => chatStore.favorites.length)
 
 // 队列任务了结（成功/失败）时脉冲闪烁队列开关，替代之前的列表跳转提示；
 // 面板已打开时用户能直接看到状态变化，不闪
@@ -434,7 +507,7 @@ function scrollToMessage(msgId: string) {
   setTimeout(() => el.classList.remove('msg-highlight'), 1600)
 }
 
-defineExpose({ scrollToMessage })
+defineExpose({ scrollToMessage, openPreview })
 
 // ==================== 原地编辑 ====================
 
@@ -696,6 +769,31 @@ watch(
   font-size: 15px;
 }
 
+/* 长提示词默认折叠：只留约 10 行视高，末行渐隐提示还有内容 */
+.prompt-text.collapsed {
+  max-height: calc(1.6em * 10);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 74%, transparent 100%);
+  mask-image: linear-gradient(#000 74%, transparent 100%);
+}
+
+.prompt-toggle {
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--bubble-text);
+  opacity: 0.62;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.prompt-toggle:hover {
+  opacity: 1;
+}
+
 .ref-images {
   display: flex;
   gap: 6px;
@@ -746,6 +844,12 @@ watch(
 
 .delete-btn:hover {
   color: #ff4d4f;
+}
+
+/* 收藏态：实心星 + 琥珀色，和普通图标区分 */
+.fav-btn.favorited,
+.fav-btn.favorited:hover {
+  color: #faad14;
 }
 
 /* 两步确认态：红底白字，3s 内再点一次执行删除 */
@@ -865,6 +969,19 @@ watch(
   color: var(--error-desc, #999);
   margin-top: 2px;
   word-break: break-word;
+}
+
+/* 结果操作：收藏本轮结果 / 复制提示词，悬停整行时出现 */
+.assistant-actions {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.message-row.assistant:hover .assistant-actions {
+  opacity: 1;
 }
 
 /* 生成结果图片 */
@@ -1012,6 +1129,11 @@ watch(
 .queue-toggle-btn:hover,
 .queue-toggle-btn.active {
   color: var(--addbtn-hover-text);
+}
+
+/* 收藏面板开关：排在生成队列开关下方 */
+.fav-toggle-btn {
+  top: 46px;
 }
 
 /* active（面板已打开）：加一圈主题辉光与常态区分 */

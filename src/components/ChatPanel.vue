@@ -9,6 +9,11 @@
         <ChatInputBox />
       </div>
       <GenerationQueuePanel v-if="chatStore.queueOpen" @jump="jumpToMessage" />
+      <FavoritesPanel
+        v-if="chatStore.favoritesOpen"
+        @jump="jumpToFavorite"
+        @preview="previewImage"
+      />
     </a-layout-content>
   </a-layout>
 </template>
@@ -20,6 +25,7 @@ import ConversationSidebar from './ConversationSidebar.vue'
 import ChatMessageList from './ChatMessageList.vue'
 import ChatInputBox from './ChatInputBox.vue'
 import GenerationQueuePanel from './GenerationQueuePanel.vue'
+import FavoritesPanel from './FavoritesPanel.vue'
 
 const chatStore = useChatStore()
 const msgListRef = ref<InstanceType<typeof ChatMessageList>>()
@@ -31,6 +37,15 @@ async function jumpToMessage(convId: string, messageId: string) {
   }
   await nextTick()
   msgListRef.value?.scrollToMessage(messageId)
+}
+
+// 会话内收藏只属于当前会话，直接滚动定位
+function jumpToFavorite(messageId: string) {
+  msgListRef.value?.scrollToMessage(messageId)
+}
+
+function previewImage(url: string) {
+  msgListRef.value?.openPreview(url)
 }
 </script>
 
