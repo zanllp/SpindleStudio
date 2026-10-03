@@ -38,6 +38,8 @@ const messages = {
       sizeLabel: '画面比例',
       resolutionLabel: '分辨率',
       resolution4kTooltip: '4K 仅支持宽屏比例',
+      qualityModeHint: '当前模型为固定质量模式，无需选择分辨率',
+      imgInputUnsupported: '当前模型仅支持文生图，不能携带参考图',
       recentUploads: '最近上传',
       noUploads: '暂无上传记录',
       unsupportedPaste: '仅支持粘贴 png/jpg/webp/gif 图片',
@@ -63,6 +65,8 @@ const messages = {
         '1:2': '1:2 超高',
         '21:9': '21:9 电影',
         '9:21': '9:21 手机竖屏',
+        '3:1': '3:1 全景横幅',
+        '1:3': '1:3 超长竖幅',
       },
     },
     message: {

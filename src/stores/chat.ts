@@ -491,12 +491,15 @@ export const useChatStore = defineStore('chat', () => {
   async function submitGenerations(userMessage: ChatMessage, count: number): Promise<string[]> {
     const { provider, model } = settingsStore.effectiveSelection
     if (!provider || !model) throw new Error(t('errors.noProviderKey'))
+    if (settingsStore.selectedUiHints?.allowImageInput === false && userMessage.referenceImages.length > 0) {
+      throw new Error(t('chat.input.imgInputUnsupported'))
+    }
     // 参考图转 base64 内联（上游服务无法访问 localhost，必须内联；只需转一次，各请求共用）
     const imageUrls = await Promise.all(userMessage.referenceImages.map(r => urlToBase64DataUrl(r.url)))
     const referenceImagePaths = userMessage.referenceImages.map(r => r.relativePath || r.url)
     // auto 比例 + 图生图时的分辨率降级由供应商 uiHints 决定（当前只有 API Mart 要求降到 1k）
     const i2iAutoResolution =
-      imageUrls.length > 0 && chatSize.value === 'auto' ? provider.uiHints?.i2iAutoResolution : undefined
+      imageUrls.length > 0 && chatSize.value === 'auto' ? settingsStore.selectedUiHints?.i2iAutoResolution : undefined
     const finalResolution = i2iAutoResolution || chatResolution.value
     const submitOne = () =>
       api.generateSubmit({

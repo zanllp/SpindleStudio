@@ -28,6 +28,92 @@ export const DEFAULT_APIMART_BASE_URL = 'https://api.apimart.ai/v1'
 export const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 
+// Aspect ratios for API Mart GPT-Image-2.5 (flare/sunburst) — the full set
+// including the new 3:1 / 1:3 extremes.
+const APIMART_GPT_25_SIZES = [
+  'auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5',
+  '16:9', '9:16', '2:1', '1:2', '21:9', '9:21', '3:1', '1:3',
+]
+// GPT-Image-2.5 Ext exposes a slightly narrower ratio set.
+const APIMART_GPT_25_EXT_SIZES = [
+  'auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '21:9',
+]
+const APIMART_GPT_25_RESOLUTIONS = ['1k', '2k', '4k']
+
+// API Mart GPT-Image-2.5 — flare/sunburst are separate model ids:
+// https://docs.apimart.ai/cn/api-reference/images/gpt-image-2.5/generation
+export const APIMART_GPT_25_FLARE_MODEL: ProviderModel = {
+  id: 'gpt-image-2.5-flare',
+  label: 'gpt-image-2.5 · Flare',
+  capabilities: {
+    sizes: APIMART_GPT_25_SIZES,
+    resolutions: APIMART_GPT_25_RESOLUTIONS,
+    // 4K is available for every ratio on 2.5 (including 1:1 and 3:1)
+    widescreenOnly4k: false,
+  },
+}
+export const APIMART_GPT_25_SUNBURST_MODEL: ProviderModel = {
+  id: 'gpt-image-2.5-sunburst',
+  label: 'gpt-image-2.5 · Sunburst',
+  capabilities: {
+    sizes: APIMART_GPT_25_SIZES,
+    resolutions: APIMART_GPT_25_RESOLUTIONS,
+    widescreenOnly4k: false,
+  },
+}
+
+// API Mart GPT-Image-2.5 Ext — one upstream model id plus a version field:
+// https://docs.apimart.ai/cn/api-reference/images/gpt-image-2.5-ext/generation
+// The app exposes each version as its own selectable preset; `extra.model`
+// overrides the request model while `version` picks flare/sunburst.
+export const APIMART_GPT_25_EXT_FLARE_MODEL: ProviderModel = {
+  id: 'gpt-image-2.5-ext-flare',
+  label: 'gpt-image-2.5-ext · Flare',
+  extra: { model: 'gpt-image-2.5-ext', version: 'flare' },
+  capabilities: {
+    sizes: APIMART_GPT_25_EXT_SIZES,
+    resolutions: APIMART_GPT_25_RESOLUTIONS,
+    widescreenOnly4k: false,
+  },
+}
+export const APIMART_GPT_25_EXT_SUNBURST_MODEL: ProviderModel = {
+  id: 'gpt-image-2.5-ext-sunburst',
+  label: 'gpt-image-2.5-ext · Sunburst',
+  extra: { model: 'gpt-image-2.5-ext', version: 'sunburst' },
+  capabilities: {
+    sizes: APIMART_GPT_25_EXT_SIZES,
+    resolutions: APIMART_GPT_25_RESOLUTIONS,
+    widescreenOnly4k: false,
+  },
+}
+
+// Built-in API Mart model presets. New presets are appended to existing
+// configs on startup so users get the latest models without touching Settings.
+export const APIMART_MODEL_PRESETS: ProviderModel[] = [
+  { id: 'gpt-image-2', label: 'gpt-image-2' },
+  { id: 'gpt-image-2-official', label: 'gpt-image-2 · Official', extra: { official_fallback: true } },
+  APIMART_GPT_25_FLARE_MODEL,
+  APIMART_GPT_25_SUNBURST_MODEL,
+  APIMART_GPT_25_EXT_FLARE_MODEL,
+  APIMART_GPT_25_EXT_SUNBURST_MODEL,
+]
+
+// Presets applied to existing configs during migration. gpt-image-2 and the
+// official row have shipped since v1.0 — leaving them out means a deliberately
+// deleted entry is not resurrected, while new models (the 2.5 family) keep
+// being ensured for installs that predate them.
+const APIMART_UPGRADE_PRESETS = APIMART_MODEL_PRESETS.filter(
+  m => m.id !== 'gpt-image-2' && m.id !== 'gpt-image-2-official',
+)
+
+function clonePreset(preset: ProviderModel): ProviderModel {
+  return {
+    ...preset,
+    extra: preset.extra ? { ...preset.extra } : undefined,
+    capabilities: preset.capabilities ? { ...preset.capabilities } : undefined,
+  }
+}
+
 // OpenRouter image model presets — snapshot of the free discovery API
 // (GET /api/v1/images/models, 2026-07). A curated few ship enabled; the rest
 // are opt-in via the Settings toggle. The adapter validates capabilities
@@ -92,10 +178,7 @@ function defaultProviders(): ProviderConfig[] {
       enabled: true,
       apiKey: process.env.APIMART_API_KEY || '',
       baseUrl: process.env.APIMART_BASE_URL || DEFAULT_APIMART_BASE_URL,
-      models: [
-        { id: 'gpt-image-2', label: 'gpt-image-2' },
-        { id: 'gpt-image-2-official', label: 'gpt-image-2 · Official', extra: { official_fallback: true } },
-      ],
+      models: APIMART_MODEL_PRESETS.map(clonePreset),
     },
     {
       id: 'openrouter',
@@ -173,6 +256,32 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
       }
       if (saved.aiChat) {
         appConfig.aiChat = { ...appConfig.aiChat, ...saved.aiChat }
+      }
+      const apimart = appConfig.providers.find(p => p.id === 'apimart')
+      if (apimart) {
+        for (const preset of APIMART_UPGRADE_PRESETS) {
+          const label = preset.label || preset.id
+          const idx = apimart.models.findIndex(m => m.id === preset.id)
+          if (idx === -1) {
+            apimart.models.push(clonePreset(preset))
+            migrated = true
+            console.log(`config.json migrated: API Mart ${label} preset appended`)
+            continue
+          }
+          const existing = apimart.models[idx]
+          const next = {
+            ...existing,
+            extra: preset.extra ? { ...preset.extra, ...(existing.extra || {}) } : existing.extra,
+            capabilities: preset.capabilities
+              ? { ...preset.capabilities, ...(existing.capabilities || {}) }
+              : existing.capabilities,
+          }
+          if (JSON.stringify(next) !== JSON.stringify(existing)) {
+            apimart.models[idx] = next
+            migrated = true
+            console.log(`config.json migrated: API Mart ${label} capabilities refreshed`)
+          }
+        }
       }
       // Older configs have no promptSnippets — keep the empty default.
       // Empty-prompt items are kept: a freshly created snippet is blank until edited
@@ -256,8 +365,23 @@ function sanitizeProvider(p: any): ProviderConfig {
             // Absent means enabled; only an explicit false is persisted
             ...(m?.enabled === false ? { enabled: false } : {}),
             ...(m?.extra && typeof m.extra === 'object' ? { extra: m.extra } : {}),
+            ...sanitizeModelCapabilities(m),
           }))
           .filter((m: any) => m.id)
       : [],
+  }
+}
+
+function sanitizeModelCapabilities(m: any): { capabilities?: ProviderModel['capabilities'] } {
+  const c = m?.capabilities
+  if (!c || typeof c !== 'object') return {}
+  return {
+    capabilities: {
+      ...(Array.isArray(c.sizes) ? { sizes: c.sizes.map(String) } : {}),
+      ...(typeof c.defaultSize === 'string' && c.defaultSize ? { defaultSize: c.defaultSize } : {}),
+      ...(Array.isArray(c.resolutions) ? { resolutions: c.resolutions.map(String) } : {}),
+      ...(typeof c.allowImageInput === 'boolean' ? { allowImageInput: c.allowImageInput } : {}),
+      ...(typeof c.widescreenOnly4k === 'boolean' ? { widescreenOnly4k: c.widescreenOnly4k } : {}),
+    },
   }
 }

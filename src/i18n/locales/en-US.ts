@@ -38,6 +38,8 @@ const messages: MessageSchema = {
       sizeLabel: 'Aspect ratio',
       resolutionLabel: 'Resolution',
       resolution4kTooltip: '4K is only available for widescreen ratios',
+      qualityModeHint: 'This model uses a fixed quality mode; no resolution selection',
+      imgInputUnsupported: 'This model only supports text-to-image; reference images are not allowed',
       recentUploads: 'Recent uploads',
       noUploads: 'No uploads yet',
       unsupportedPaste: 'Only png/jpg/webp/gif images can be pasted',
@@ -63,6 +65,8 @@ const messages: MessageSchema = {
         '1:2': '1:2 Ultra-tall',
         '21:9': '21:9 Cinematic',
         '9:21': '9:21 Phone portrait',
+        '3:1': '3:1 Panorama',
+        '1:3': '1:3 Tall poster',
       },
     },
     message: {

@@ -49,6 +49,21 @@ export const useSettingsStore = defineStore('settings', () => {
     return { provider: fallback, model: fallback ? enabledModels(fallback)[0] : undefined }
   })
 
+  // Merges provider-level UI hints with model-level capabilities so a provider
+  // can host models with different aspect-ratio/resolution/reference rules.
+  const selectedUiHints = computed(() => {
+    const { provider, model } = effectiveSelection.value
+    const base = provider?.uiHints
+    const caps = model?.capabilities
+    return {
+      ...(base || {}),
+      ...(caps?.sizes ? { sizes: caps.sizes } : {}),
+      ...(caps?.resolutions ? { resolutions: caps.resolutions } : {}),
+      ...(typeof caps?.allowImageInput === 'boolean' ? { allowImageInput: caps.allowImageInput } : {}),
+      ...(typeof caps?.widescreenOnly4k === 'boolean' ? { widescreenOnly4k: caps.widescreenOnly4k } : {}),
+    }
+  })
+
   async function loadConfig() {
     config.value = await api.getConfig()
     loaded.value = true
@@ -157,6 +172,7 @@ export const useSettingsStore = defineStore('settings', () => {
     selectedProvider,
     selectedModel,
     effectiveSelection,
+    selectedUiHints,
     loadConfig,
     selectModel,
     saveProviders,

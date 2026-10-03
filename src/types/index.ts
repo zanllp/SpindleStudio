@@ -34,6 +34,19 @@ export interface ProviderUiHints {
   widescreenOnly4k?: boolean
   // With reference images + auto aspect ratio, force this resolution
   i2iAutoResolution?: string
+  // Whether the selected model accepts reference images. Defaults to true
+  // when absent; text-to-image-only models can turn it off.
+  allowImageInput?: boolean
+}
+
+export interface ProviderModelCapabilities {
+  sizes?: string[]
+  defaultSize?: string
+  resolutions?: string[]
+  allowImageInput?: boolean
+  // Overrides the provider-level "4K only on widescreen" hint. GPT-Image-2.5
+  // supports 4K on every aspect ratio, so presets opt out with false.
+  widescreenOnly4k?: boolean
 }
 
 export interface ProviderModel {
@@ -44,6 +57,7 @@ export interface ProviderModel {
   enabled?: boolean
   // Extra fields merged into the upstream payload (e.g. { official_fallback: true })
   extra?: Record<string, any>
+  capabilities?: ProviderModelCapabilities
 }
 
 export interface ProviderConfig {

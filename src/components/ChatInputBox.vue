@@ -2,7 +2,7 @@
   <div class="chat-input-box">
     <div class="input-column">
       <!-- 待发送的参考图 -->
-      <div v-if="chatStore.pendingReferenceImages.length > 0" class="pending-refs">
+      <div v-if="canUseImages && chatStore.pendingReferenceImages.length > 0" class="pending-refs">
         <div v-for="ref in chatStore.pendingReferenceImages" :key="ref.id" class="ref-thumb">
           <img :src="thumbUrl(ref.url, 144)" :alt="$t('chat.input.refAlt')" />
           <CloseCircleFilled class="remove-ref" @click="chatStore.removePendingReference(ref.id)" />
@@ -24,7 +24,7 @@
         <div class="input-toolbar">
           <div class="toolbar-left">
             <!-- 上传（悬停显示历史上传） -->
-            <a-popover trigger="hover" placement="topLeft" @openChange="loadUploadHistory">
+            <a-popover v-if="canUseImages" trigger="hover" placement="topLeft" @openChange="loadUploadHistory">
               <template #content>
                 <div class="upload-history">
                   <div class="upload-history-title">{{ $t('chat.input.recentUploads') }}</div>
@@ -71,11 +71,16 @@
                     :get-popup-container="popupInPanel"
                   />
                   <div class="param-label" style="margin-top: 10px;">{{ $t('chat.input.resolutionLabel') }}</div>
-                  <a-radio-group v-model:value="chatStore.chatResolution" size="small" button-style="solid">
-                    <a-radio-button value="1k">1K</a-radio-button>
-                    <a-radio-button value="2k">2K</a-radio-button>
-                    <a-radio-button value="4k" :disabled="is4kConstrained" :title="is4kConstrained ? $t('chat.input.resolution4kTooltip') : ''">4K</a-radio-button>
+                  <a-radio-group v-if="resolutionOptions.length > 0" v-model:value="chatStore.chatResolution" size="small" button-style="solid">
+                    <a-radio-button
+                      v-for="opt in resolutionOptions"
+                      :key="opt.value"
+                      :value="opt.value"
+                      :disabled="opt.value === '4k' && is4kConstrained"
+                      :title="opt.value === '4k' && is4kConstrained ? $t('chat.input.resolution4kTooltip') : ''"
+                    >{{ opt.label }}</a-radio-button>
                   </a-radio-group>
+                  <div v-else class="param-hint">{{ $t('chat.input.qualityModeHint') }}</div>
                 </div>
               </template>
               <button class="tool-btn" :title="$t('chat.input.paramsTooltip')">
@@ -257,6 +262,10 @@ async function loadUploadHistory(open: boolean) {
 
 // 点击历史图直接作为参考图（去重逻辑在 store 内）
 function pickUpload(item: UploadHistoryItem) {
+  if (!canUseImages.value) {
+    message.error(t('chat.input.imgInputUnsupported'))
+    return
+  }
   chatStore.addPendingReference({ url: item.url, filename: item.filename })
 }
 
@@ -264,17 +273,31 @@ function pickUpload(item: UploadHistoryItem) {
 // Fallback full set is API Mart compatible (gpt-image-2 supports all of them).
 const SIZE_FALLBACK = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '21:9', '9:21']
 const sizeOptions = computed(() => {
-  const sizes = settingsStore.selectedProvider?.uiHints?.sizes || SIZE_FALLBACK
+  const sizes = settingsStore.selectedUiHints?.sizes || SIZE_FALLBACK
   return sizes.map(v => ({ value: v, label: t(`chat.input.sizes.${v}`) }))
 })
+const canUseImages = computed(() => settingsStore.selectedUiHints?.allowImageInput !== false)
 
 // 4K 仅支持宽屏比例（由供应商类型的 uiHints 下发，当前只有 API Mart 有此限制；
 // OpenAI 系映射为 quality 无此限制）
 const WIDESCREEN_SIZES = new Set(['16:9', '9:16', '2:1', '1:2', '21:9', '9:21'])
 const isWidescreenSize = computed(() => WIDESCREEN_SIZES.has(chatStore.chatSize))
 const is4kConstrained = computed(
-  () => !!settingsStore.selectedProvider?.uiHints?.widescreenOnly4k && !isWidescreenSize.value,
+  () => !!settingsStore.selectedUiHints?.widescreenOnly4k && !isWidescreenSize.value,
 )
+
+// Resolution buttons filtered by the selected model's capability set.
+// No restriction (absent or empty) means all three are offered.
+const RESOLUTION_OPTIONS = [
+  { value: '1k', label: '1K' },
+  { value: '2k', label: '2K' },
+  { value: '4k', label: '4K' },
+]
+const resolutionOptions = computed(() => {
+  const allowed = settingsStore.selectedUiHints?.resolutions
+  if (!allowed?.length) return RESOLUTION_OPTIONS
+  return RESOLUTION_OPTIONS.filter(o => allowed.includes(o.value))
+})
 
 // ==================== 供应商·模型选择 ====================
 
@@ -296,10 +319,45 @@ const modelOptions = computed(() =>
 function handleModelChange(key: string) {
   const [providerId, modelId] = key.split('::')
   settingsStore.selectModel(providerId, modelId)
+  applyModelDefaults()
   chatStore.rememberCurrentModel()
 }
 
+function applyModelDefaults() {
+  const model = settingsStore.effectiveSelection.model
+  const sizes = model?.capabilities?.sizes
+  const defaultSize = model?.capabilities?.defaultSize
+  if (defaultSize && sizes?.includes(defaultSize)) {
+    chatStore.chatSize = defaultSize
+  } else if (sizes?.length && !sizes.includes(chatStore.chatSize)) {
+    chatStore.chatSize = sizes[0]
+  }
+  const resolutions = model?.capabilities?.resolutions
+  if (resolutions?.length && !resolutions.includes(chatStore.chatResolution)) {
+    chatStore.chatResolution = resolutions[0] as '1k' | '2k' | '4k'
+  }
+  // Switching from a model that allows 4K on every ratio back to gpt-image-2
+  // can leave a stale 4K + square selection — downgrade before it reaches the API.
+  if (chatStore.chatResolution === '4k') {
+    const hints = settingsStore.selectedUiHints
+    if (hints?.widescreenOnly4k && !WIDESCREEN_SIZES.has(chatStore.chatSize)) {
+      chatStore.chatResolution = '2k'
+    }
+  }
+  if (model?.capabilities?.allowImageInput === false) chatStore.pendingReferenceImages.splice(0)
+}
+
+watch(
+  () => settingsStore.effectiveSelection.model?.id,
+  () => applyModelDefaults(),
+  { immediate: true },
+)
+
 function uploadImageFile(file: File) {
+  if (!canUseImages.value) {
+    message.error(t('chat.input.imgInputUnsupported'))
+    return
+  }
   chatStore.addPendingUpload(file).catch((e) => {
     message.error(e.response?.data?.error || e.message || t('errors.uploadFailed'))
   })
@@ -317,6 +375,11 @@ function handlePaste(e: ClipboardEvent) {
   const allFiles = Array.from(e.clipboardData?.files || [])
   if (allFiles.length === 0) return
   const images = allFiles.filter(f => PASTE_IMAGE_TYPES.has(f.type))
+  if (images.length > 0 && !canUseImages.value) {
+    e.preventDefault()
+    message.error(t('chat.input.imgInputUnsupported'))
+    return
+  }
   if (images.length === 0) {
     if (allFiles.some(f => f.type.startsWith('image/'))) {
       message.error(t('chat.input.unsupportedPaste'))
@@ -587,6 +650,12 @@ async function handleSend() {
   font-size: 12px;
   color: var(--text-secondary);
   margin-bottom: 4px;
+}
+
+.param-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
 }
 
 /* ---------- 常用提示词面板 ---------- */

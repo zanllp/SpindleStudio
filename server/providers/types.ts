@@ -8,6 +8,19 @@
 // Runtime registration lives in registry.ts — add new types there AND here.
 export type ProviderType = 'apimart-task' | 'openai-images' | 'openrouter-images'
 
+// Model-level capability hints. UI merges these over the provider-level hints
+// so one provider can host models with different aspect-ratio/resolution
+// support (e.g. API Mart gpt-image-2 vs the GPT-Image-2.5 presets).
+export interface ProviderModelCapabilities {
+  sizes?: string[]
+  defaultSize?: string
+  resolutions?: string[]
+  allowImageInput?: boolean
+  // Overrides the provider-level "4K only on widescreen" hint. GPT-Image-2.5
+  // supports 4K on every aspect ratio, so presets opt out with false.
+  widescreenOnly4k?: boolean
+}
+
 export interface ProviderModel {
   id: string // model id sent to the upstream API
   label: string // display name in the UI
@@ -16,6 +29,7 @@ export interface ProviderModel {
   enabled?: boolean
   // Extra fields merged into the upstream payload (e.g. { official_fallback: true })
   extra?: Record<string, any>
+  capabilities?: ProviderModelCapabilities
 }
 
 export interface ProviderConfig {
