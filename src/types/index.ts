@@ -143,6 +143,20 @@ export interface Conversation {
   createdAt: number
   updatedAt: number
   messages: ChatMessage[]
+  // 会话内收藏（提示词 / 生成结果）。随会话文档一起存储，
+  // 因此天然只在当前会话可见，不跨会话共享。
+  favorites?: ConversationFavorite[]
+}
+
+// 会话内收藏条目：type=query 收藏用户提示词，type=resp 收藏该轮生成结果
+export interface ConversationFavorite {
+  id: string
+  type: 'query' | 'resp'
+  text: string                       // 提示词文本（resp 为该轮使用的提示词）
+  messageId: string                  // query → 用户消息 id；resp → assistant 消息 id
+  referenceImages?: ChatReferenceImage[]  // query：该轮参考图
+  images?: string[]                  // resp：该轮生成图片 url（快照）
+  createdAt: number
 }
 
 export interface ConversationSummary {
