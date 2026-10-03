@@ -243,48 +243,44 @@
     >
       <div v-if="paramsImage">
         <img :src="paramsImage.url" style="width: 100%; border-radius: 10px;" />
-        <a-descriptions :column="2" bordered size="small" style="margin-top: 16px;">
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.prompt')" :span="2">
+        <div class="params-table">
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.prompt') }}</div>
+          <div class="params-cell params-value params-wide">
             <div style="display: flex; align-items: flex-start; gap: 8px;">
               <span style="white-space: pre-wrap; word-break: break-word; flex: 1;">{{ paramsImage.prompt }}</span>
               <AppButton size="small" @click="copyPrompt(paramsImage.prompt)">
                 <CopyOutlined />
               </AppButton>
             </div>
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.model')">
-            {{ paramsImage.metadata?.model || '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.provider')">
-            {{ paramsImage.metadata?.provider || paramsImage.provider || '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.size')">
-            {{ paramsImage.metadata?.size || '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.aspectRatio')">
-            {{ paramsImage.metadata?.aspect_ratio || '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.resolution')">
-            {{ paramsImage.metadata?.resolution || '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.referenceImages')" :span="2">
+          </div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.model') }}</div>
+          <div class="params-cell params-value">{{ paramsImage.metadata?.model || '-' }}</div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.provider') }}</div>
+          <div class="params-cell params-value">{{ paramsImage.metadata?.provider || paramsImage.provider || '-' }}</div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.size') }}</div>
+          <div class="params-cell params-value">{{ paramsImage.metadata?.size || '-' }}</div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.aspectRatio') }}</div>
+          <div class="params-cell params-value">{{ paramsImage.metadata?.aspect_ratio || '-' }}</div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.resolution') }}</div>
+          <div class="params-cell params-value">{{ paramsImage.metadata?.resolution || '-' }}</div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.duration') }}</div>
+          <div class="params-cell params-value">
+            {{ paramsImage.generationTime ? paramsImage.generationTime.toFixed(1) + 's' : '-' }}
+          </div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.referenceImages') }}</div>
+          <div class="params-cell params-value params-wide">
             <span v-if="!paramsImage.metadata?.custom_metadata?.reference_images?.length">-</span>
-            <div v-else style="display: flex; flex-wrap: wrap; gap: 8px;">
-              <a-tag v-for="(ref, idx) in paramsImage.metadata.custom_metadata.reference_images" :key="idx" size="small">
+            <div v-else class="params-refs">
+              <a-tag v-for="(ref, idx) in paramsImage.metadata.custom_metadata.reference_images" :key="idx">
                 {{ ref }}
               </a-tag>
             </div>
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.source')">
-            {{ providerLabel(paramsImage.provider, paramsImage.model) }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.duration')">
-            {{ paramsImage.generationTime ? paramsImage.generationTime.toFixed(1) + 's' : '-' }}
-          </a-descriptions-item>
-          <a-descriptions-item :label="$t('chat.message.paramsLabels.filename')" :span="2">
-            {{ paramsImage.filename }}
-          </a-descriptions-item>
-        </a-descriptions>
+          </div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.source') }}</div>
+          <div class="params-cell params-value params-wide">{{ providerLabel(paramsImage.provider, paramsImage.model) }}</div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.filename') }}</div>
+          <div class="params-cell params-value params-wide">{{ paramsImage.filename }}</div>
+        </div>
       </div>
     </a-modal>
 
@@ -1218,5 +1214,57 @@ watch(
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* 生成参数：手写表格，避免 antd-descriptions 在长文本下把内容列压成一条 */
+.params-table {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+  gap: 1px;
+  margin-top: 16px;
+  background: var(--border-subtle, #ececec);
+  border: 1px solid var(--border-subtle, #ececec);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.params-cell {
+  min-width: 0;
+  padding: 8px 12px;
+  background: var(--main-bg, #fff);
+  color: var(--text-primary, #1a1a1a);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.params-label {
+  background: var(--sider-bg, #fafafa);
+  color: var(--text-secondary, #5c5c5c);
+  white-space: nowrap;
+}
+
+.params-value {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.params-wide {
+  grid-column: 2 / -1;
+}
+
+.params-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.params-refs :deep(.ant-tag) {
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 </style>
