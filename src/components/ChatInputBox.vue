@@ -296,6 +296,7 @@ const modelOptions = computed(() =>
 function handleModelChange(key: string) {
   const [providerId, modelId] = key.split('::')
   settingsStore.selectModel(providerId, modelId)
+  chatStore.rememberCurrentModel()
 }
 
 function uploadImageFile(file: File) {

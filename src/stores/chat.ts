@@ -15,9 +15,22 @@ import { useSettingsStore } from '@/stores/settings'
 import { t, DEFAULT_CONVERSATION_TITLES } from '@/i18n'
 
 const CHAT_IMAGE_CATEGORY = 'chat'
+const CONV_MODEL_MEMORY_KEY = 'app_model_by_conv'
 
 function genId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+}
+
+type ConvModelMemory = Record<string, string>
+
+function loadConvModelMemory(): ConvModelMemory {
+  try {
+    const raw = localStorage.getItem(CONV_MODEL_MEMORY_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed as ConvModelMemory : {}
+  } catch {
+    return {}
+  }
 }
 
 // fetch 本地图片 URL 并转成 base64 data URL（API Mart 无法访问 localhost，必须内联）
@@ -41,9 +54,37 @@ export const useChatStore = defineStore('chat', () => {
   const isLoadingList = ref(false)
 
   const activeConversationId = computed(() => activeConversation.value?.id || null)
+  const convModelMemory = ref<ConvModelMemory>(loadConvModelMemory())
 
   // 是否有参考图 → 决定文生图/图生图
   const isImg2Img = computed(() => pendingReferenceImages.value.length > 0)
+
+  // 每个会话独立记住当前模型选择，切换到其他会话时不串台。
+  function rememberCurrentModel() {
+    const convId = activeConversationId.value
+    if (!convId) return
+    const { provider, model } = settingsStore.effectiveSelection
+    if (!provider || !model) return
+    convModelMemory.value[convId] = `${provider.id}::${model.id}`
+    localStorage.setItem(CONV_MODEL_MEMORY_KEY, JSON.stringify(convModelMemory.value))
+  }
+
+  function restoreModelForConversation(convId: string) {
+    const saved = convModelMemory.value[convId]
+    if (saved) {
+      const [providerId, modelId] = saved.split('::')
+      const provider = settingsStore.config.providers.find(p => p.id === providerId)
+      if (provider?.models.some(m => m.id === modelId)) {
+        settingsStore.selectModel(providerId, modelId)
+        return
+      }
+    }
+    // 没有显式记忆时从会话历史回退，避免把上一个会话的模型带过来。
+    const last = [...(activeConversation.value?.messages || [])]
+      .reverse()
+      .find(m => m.role === 'assistant' && m.provider && m.model)
+    if (last?.provider && last?.model) settingsStore.selectModel(last.provider, last.model)
+  }
 
   // 生图供应商/模型在 settings store 中选择（供应商列表 + 各供应商模型）
 
@@ -191,6 +232,7 @@ export const useChatStore = defineStore('chat', () => {
     })
     activeConversation.value = conv
     pendingReferenceImages.value = []
+    rememberCurrentModel()
     return conv
   }
 
@@ -201,6 +243,7 @@ export const useChatStore = defineStore('chat', () => {
     dirtyConvIds.delete(id) // 刚从磁盘加载，无本地变更
     activeConversation.value = conv
     pendingReferenceImages.value = []
+    restoreModelForConversation(id)
     // 页面刷新/切换回来：恢复未完成任务的轮询
     // 注意必须传响应式代理（activeConversation.value），直接改原始对象不会触发界面更新
     resumePendingGenerations(activeConversation.value!)
@@ -228,6 +271,8 @@ export const useChatStore = defineStore('chat', () => {
     dirtyConvIds.delete(id)
     conversationList.value = conversationList.value.filter(c => c.id !== id)
     genQueue.value = genQueue.value.filter(e => e.convId !== id)
+    delete convModelMemory.value[id]
+    localStorage.setItem(CONV_MODEL_MEMORY_KEY, JSON.stringify(convModelMemory.value))
     if (activeConversationId.value === id) {
       activeConversation.value = null
       pendingReferenceImages.value = []
@@ -727,6 +772,7 @@ export const useChatStore = defineStore('chat', () => {
     summarizeTitle,
     draftPrompt,
     setDraftPrompt,
+    rememberCurrentModel,
     genQueue,
     queueOpen,
     queueSettleTick,
