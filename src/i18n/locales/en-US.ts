@@ -25,7 +25,6 @@ const messages: MessageSchema = {
     aiSummarizeTooltip: 'Let AI summarize a title from the user messages in this conversation',
     newWindow: 'New Window',
     openInNewWindow: 'Open in New Window',
-    recentLimitHint: 'Showing the latest 20 of {total} conversations',
   },
   chat: {
     input: {
