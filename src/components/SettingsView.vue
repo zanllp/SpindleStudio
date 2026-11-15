@@ -165,7 +165,11 @@ function close() {
 
 async function saveAiChat() {
   try {
-    await settingsStore.saveAiChat(aiChatDraft.value.apiKey.trim(), aiChatDraft.value.baseUrl.trim(), aiChatDraft.value.model.trim())
+    await settingsStore.saveAiChat(
+      aiChatDraft.value.apiKey.trim(),
+      aiChatDraft.value.baseUrl.trim(),
+      aiChatDraft.value.model.trim(),
+    )
   } catch (e: any) {
     message.error(e.response?.data?.error || e.message || t('errors.saveFailed'))
   }

@@ -26,9 +26,21 @@ const RESOLUTION_TO_QUALITY: Record<string, string> = {
   '4k': 'high',
 }
 
+// Local/self-hosted endpoints can queue for a long time behind one GPU, so the
+// timeout is per-provider (config.json `timeoutMs`) with an env fallback.
+function imageTimeout(provider: ProviderConfig): number {
+  const configured = Number(provider.timeoutMs)
+  if (Number.isFinite(configured) && configured > 0) return configured
+  const envValue = Number(process.env.OPENAI_IMAGES_TIMEOUT_MS)
+  if (Number.isFinite(envValue) && envValue > 0) return envValue
+  return 600000
+}
+
 // OpenAI sizes only cover three fixed geometries — map any aspect ratio to the closest
 function mapSize(ratio: string): string {
   if (!ratio || ratio === 'auto') return 'auto'
+  // 模型自己声明像素尺寸时（AIHubMix / Qwen image 系）原样透传，不做比例推断
+  if (/^[1-9][0-9]*x[1-9][0-9]*$/.test(ratio)) return ratio
   if (ratio === '1:1') return '1024x1024'
   const [w, h] = ratio.split(':').map(Number)
   if (!w || !h) return 'auto'
@@ -73,7 +85,7 @@ async function execute(
             'Authorization': `Bearer ${provider.apiKey}`,
             'Content-Type': 'application/json',
           },
-          timeout: 600000,
+          timeout: imageTimeout(provider),
         }),
         `openai submit [${provider.id}/${task.modelId}]`,
       )
@@ -116,9 +128,17 @@ async function callEditsEndpoint(
   })
   const response = await axios.post(`${provider.baseUrl}/images/edits`, form, {
     headers: { 'Authorization': `Bearer ${provider.apiKey}` },
-    timeout: 600000,
+    timeout: imageTimeout(provider),
   })
   return response.data
 }
 
 export const openaiImagesAdapter: ProviderAdapter = makeSyncAdapter(execute)
+
+openaiImagesAdapter.resetRemoteQueue = async (provider) => {
+  const response = await axios.post(`${provider.baseUrl}/queue/clear`, {}, {
+    headers: { 'Authorization': `Bearer ${provider.apiKey}` },
+    timeout: 30000,
+  })
+  return response.data || {}
+}

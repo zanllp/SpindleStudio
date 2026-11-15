@@ -6,6 +6,7 @@ import type {
   Conversation,
   ConversationSummary,
   ConversationFavorite,
+  AllFavoriteEntry,
   ChatMessage,
   ChatGeneratedImage,
   ChatReferenceImage,
@@ -55,10 +56,21 @@ export const useChatStore = defineStore('chat', () => {
   const isLoadingList = ref(false)
 
   const activeConversationId = computed(() => activeConversation.value?.id || null)
+  const AUTO_COLLAPSE_AFTER_MS = 7 * 24 * 60 * 60 * 1000
+  const AUTO_COLLAPSE_MAX_TURNS = 10
+  const activeConversationList = computed(() => conversationList.value.filter(c => !c.archived && !isAutoCollapsed(c)))
+  const autoCollapsedConversationList = computed(() => conversationList.value.filter(c => !c.archived && isAutoCollapsed(c)))
+  const archivedConversationList = computed(() => conversationList.value.filter(c => c.archived))
   const convModelMemory = ref<ConvModelMemory>(loadConvModelMemory())
 
   // 是否有参考图 → 决定文生图/图生图
   const isImg2Img = computed(() => pendingReferenceImages.value.length > 0)
+
+  function isAutoCollapsed(conv: ConversationSummary): boolean {
+    if (conv.archived || conv.pinned || conv.turnCount >= AUTO_COLLAPSE_MAX_TURNS) return false
+    const lastActivity = conv.lastGeneratedAt || conv.updatedAt || conv.createdAt
+    return lastActivity < Date.now() - AUTO_COLLAPSE_AFTER_MS
+  }
 
   // 每个会话独立记住当前模型选择，切换到其他会话时不串台。
   function rememberCurrentModel() {
@@ -179,15 +191,44 @@ export const useChatStore = defineStore('chat', () => {
     genQueue.value = genQueue.value.filter(e => e.status === 'generating')
   }
 
-  // ==================== 会话内收藏（query / resp） ====================
+  // ==================== 收藏（query / resp） ====================
 
-  // 收藏数据挂在会话文档上（Conversation.favorites），随会话一起落盘。
-  // 切到别的会话就看不到、也不会被别的会话引用 —— 只在当前会话可见。
+  // 收藏仍随所属会话落盘；全局视图只从服务端读取扁平摘要，不重复存储。
   const FAVORITES_OPEN_KEY = 'app_favorites_open'
   const favoritesOpen = ref(localStorage.getItem(FAVORITES_OPEN_KEY) === '1')
   watch(favoritesOpen, v => localStorage.setItem(FAVORITES_OPEN_KEY, v ? '1' : '0'))
 
   const favorites = computed<ConversationFavorite[]>(() => activeConversation.value?.favorites || [])
+  const allFavorites = ref<AllFavoriteEntry[]>([])
+  const allFavoritesLoading = ref(false)
+  const allFavoritesOpen = ref(false)
+
+  async function loadAllFavorites() {
+    if (allFavoritesLoading.value) return
+    allFavoritesLoading.value = true
+    try {
+      const result = await api.getFavorites()
+      allFavorites.value = result.favorites
+    } catch (e: any) {
+      console.error('加载全部收藏失败:', e.message)
+      message.error(t('errors.loadFavoritesFailed'))
+    } finally {
+      allFavoritesLoading.value = false
+    }
+  }
+
+  function openFavorites() {
+    favoritesOpen.value = true
+  }
+
+  function toggleFavoritesPanel() {
+    favoritesOpen.value = !favoritesOpen.value
+  }
+
+  function openAllFavorites() {
+    allFavoritesOpen.value = true
+    void loadAllFavorites()
+  }
 
   function isFavorited(messageId: string): boolean {
     return favorites.value.some(f => f.messageId === messageId)
@@ -198,15 +239,38 @@ export const useChatStore = defineStore('chat', () => {
     if (!conv) return
     if (!conv.favorites) conv.favorites = []
     if (conv.favorites.some(f => f.messageId === favorite.messageId)) return
-    conv.favorites.unshift({ ...favorite, id: genId('fav'), createdAt: Date.now() })
+    const entry: ConversationFavorite = { ...favorite, id: genId('fav'), createdAt: Date.now() }
+    conv.favorites.unshift(entry)
+    allFavorites.value = [
+      {
+        ...entry,
+        conversationId: conv.id,
+        conversationTitle: conv.title,
+        conversationUpdatedAt: conv.updatedAt,
+      },
+      ...allFavorites.value.filter(f => !(f.conversationId === conv.id && f.id === entry.id)),
+    ]
     persistConvDebounced(conv)
   }
 
-  function removeFavorite(id: string) {
+  async function removeFavorite(id: string, conversationId = activeConversationId.value || '') {
+    if (!conversationId) return
     const conv = activeConversation.value
-    if (!conv?.favorites) return
-    conv.favorites = conv.favorites.filter(f => f.id !== id)
-    persistConvDebounced(conv)
+    if (conv?.id === conversationId) {
+      conv.favorites = (conv.favorites || []).filter(f => f.id !== id)
+      allFavorites.value = allFavorites.value.filter(f => !(f.conversationId === conversationId && f.id === id))
+      persistConvDebounced(conv)
+      return
+    }
+
+    try {
+      await api.deleteConversationFavorite(conversationId, id)
+      allFavorites.value = allFavorites.value.filter(f => !(f.conversationId === conversationId && f.id === id))
+    } catch (e: any) {
+      console.error('移除收藏失败:', e.message)
+      message.error(t('errors.deleteFailed'))
+      void loadAllFavorites()
+    }
   }
 
   // 收藏用户提示词（query）：同一消息已收藏则取消
@@ -265,9 +329,30 @@ export const useChatStore = defineStore('chat', () => {
     }
   }, 500)
 
+  function summarizeConversation(conv: Conversation) {
+    let turnCount = 0
+    let lastGeneratedAt = 0
+    for (let index = 0; index < conv.messages.length; index++) {
+      const message = conv.messages[index]
+      if (message.role === 'user' && conv.messages[index + 1]?.role === 'assistant') turnCount++
+      if (message.role === 'assistant') lastGeneratedAt = Math.max(lastGeneratedAt, message.createdAt || 0)
+    }
+    return { turnCount, lastGeneratedAt }
+  }
+
+  function syncConversationSummary(conv: Conversation) {
+    const item = conversationList.value.find(c => c.id === conv.id)
+    if (!item) return
+    item.title = conv.title
+    item.updatedAt = conv.updatedAt
+    Object.assign(item, summarizeConversation(conv))
+    sortConversationList()
+  }
+
   // 防抖落盘指定会话（深拷贝快照；生成回调触发时该会话未必是激活会话）
   function persistConvDebounced(conv: Conversation) {
     conv.updatedAt = Date.now()
+    syncConversationSummary(conv)
     dirtyConvIds.add(conv.id)
     persistDebounced(JSON.parse(JSON.stringify(conv)))
   }
@@ -277,6 +362,7 @@ export const useChatStore = defineStore('chat', () => {
     const conv = activeConversation.value
     if (!conv || !dirtyConvIds.has(conv.id)) return
     conv.updatedAt = Date.now()
+    syncConversationSummary(conv)
     dirtyConvIds.delete(conv.id)
     await api.saveConversation(conv.id, JSON.parse(JSON.stringify(conv)))
   }
@@ -293,6 +379,42 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function sortConversationList() {
+    conversationList.value = [...conversationList.value].sort((a, b) =>
+      Number(a.archived) - Number(b.archived) ||
+      Number(b.pinned) - Number(a.pinned) ||
+      b.updatedAt - a.updatedAt,
+    )
+  }
+
+  async function toggleConversationPinned(id: string) {
+    const item = conversationList.value.find(c => c.id === id)
+    if (!item) return
+    try {
+      const result = await api.setConversationPinned(id, !item.pinned)
+      item.pinned = result.pinned
+      if (activeConversation.value?.id === id) activeConversation.value.pinned = result.pinned
+      sortConversationList()
+    } catch (e: any) {
+      console.error('更新会话置顶失败:', e.message)
+      message.error(t('errors.saveFailed'))
+    }
+  }
+
+  async function toggleConversationArchived(id: string) {
+    const item = conversationList.value.find(c => c.id === id)
+    if (!item) return
+    try {
+      const result = await api.setConversationArchived(id, !item.archived)
+      item.archived = result.archived
+      if (activeConversation.value?.id === id) activeConversation.value.archived = result.archived
+      sortConversationList()
+    } catch (e: any) {
+      console.error('更新会话归档失败:', e.message)
+      message.error(t('errors.saveFailed'))
+    }
+  }
+
   async function createNewConversation(title?: string): Promise<Conversation> {
     const conv = await api.createConversation(title || t('common.newConversation'))
     conversationList.value.unshift({
@@ -300,6 +422,10 @@ export const useChatStore = defineStore('chat', () => {
       title: conv.title,
       createdAt: conv.createdAt,
       updatedAt: conv.updatedAt,
+      pinned: conv.pinned,
+      archived: conv.archived,
+      turnCount: conv.turnCount,
+      lastGeneratedAt: conv.lastGeneratedAt,
     })
     activeConversation.value = conv
     pendingReferenceImages.value = []
@@ -313,6 +439,7 @@ export const useChatStore = defineStore('chat', () => {
     const conv = await api.getConversation(id)
     dirtyConvIds.delete(id) // 刚从磁盘加载，无本地变更
     activeConversation.value = conv
+    syncConversationSummary(conv)
     pendingReferenceImages.value = []
     restoreModelForConversation(id)
     // 页面刷新/切换回来：恢复未完成任务的轮询
@@ -335,12 +462,16 @@ export const useChatStore = defineStore('chat', () => {
     }
     const item = conversationList.value.find(c => c.id === id)
     if (item) item.title = trimmed
+    for (const favorite of allFavorites.value) {
+      if (favorite.conversationId === id) favorite.conversationTitle = trimmed
+    }
   }
 
   async function deleteConversation(id: string) {
     await api.deleteConversation(id)
     dirtyConvIds.delete(id)
     conversationList.value = conversationList.value.filter(c => c.id !== id)
+    allFavorites.value = allFavorites.value.filter(f => f.conversationId !== id)
     genQueue.value = genQueue.value.filter(e => e.convId !== id)
     delete convModelMemory.value[id]
     localStorage.setItem(CONV_MODEL_MEMORY_KEY, JSON.stringify(convModelMemory.value))
@@ -357,6 +488,7 @@ export const useChatStore = defineStore('chat', () => {
     const conv = await api.getConversation(id)
     dirtyConvIds.delete(id)
     activeConversation.value = conv
+    syncConversationSummary(conv)
     resumePendingGenerations(activeConversation.value!)
   }
 
@@ -838,6 +970,9 @@ export const useChatStore = defineStore('chat', () => {
 
   return {
     conversationList,
+    activeConversationList,
+    autoCollapsedConversationList,
+    archivedConversationList,
     activeConversation,
     activeConversationId,
     pendingReferenceImages,
@@ -851,6 +986,8 @@ export const useChatStore = defineStore('chat', () => {
     createNewConversation,
     selectConversation,
     renameConversation,
+    toggleConversationPinned,
+    toggleConversationArchived,
     deleteConversation,
     summarizeTitle,
     draftPrompt,
@@ -862,6 +999,13 @@ export const useChatStore = defineStore('chat', () => {
     clearFinishedQueue,
     favoritesOpen,
     favorites,
+    allFavorites,
+    allFavoritesLoading,
+    allFavoritesOpen,
+    loadAllFavorites,
+    openFavorites,
+    toggleFavoritesPanel,
+    openAllFavorites,
     isFavorited,
     removeFavorite,
     toggleQueryFavorite,

@@ -102,7 +102,7 @@ Four built-in themes, switchable anytime from the top-right dropdown:
 
 ## Model providers
 
-Multiple backends can live side by side in Settings — each with its own API key, base URL and model list — and the active provider/model is picked per message from the input box. Both sync (OpenAI-compatible images) and async task-style APIs are supported, and custom providers can be added from the UI. Ships with `gpt-image-2` as the default model.
+Multiple backends can live side by side in Settings — each with its own API key, base URL and model list — and the active provider/model is picked per message from the input box. Both sync (OpenAI-compatible images) and async task-style APIs are supported, and custom providers can be added from the UI. Ships with `gpt-image-2` as the default model. Built-in providers include API Mart, OpenRouter, AIHubMix (Qwen image models, which take explicit `{width}x{height}` sizes instead of 1K/2K/4K) and OpenAI. Models that declare a per-image price record it in the image metadata (`Cost: $0.0141 USD` plus a `cost` object in the EXIF JSON).
 
 <img src="docs/screenshots/settings-providers.webp" alt="Provider settings" width="720" />
 
@@ -141,6 +141,7 @@ Priority: in-app settings (`config.json`) > `.env.local` > `.env` > environment 
 | --- | --- |
 | `APIMART_API_KEY` / `APIMART_BASE_URL` | API Mart seed key / URL (editable in-app) |
 | `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` | OpenRouter seed key / URL (editable in-app) |
+| `AIHUBMIX_API_KEY` / `AIHUBMIX_BASE_URL` | AIHubMix seed key / URL (editable in-app) |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` | Optional, used only for the "AI title" feature |
 | `PORT` | Backend port, default `3210` |
 | `HTTPS_PROXY` | Optional outbound proxy |

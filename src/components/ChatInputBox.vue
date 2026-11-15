@@ -61,7 +61,7 @@
             <a-popover trigger="hover" placement="topLeft">
               <template #content>
                 <div class="params-panel">
-                  <div class="param-label">{{ $t('chat.input.sizeLabel') }}</div>
+                  <div class="param-label">{{ pixelSizeMode ? $t('chat.input.sizePixelLabel') : $t('chat.input.sizeLabel') }}</div>
                   <!-- 下拉挂进面板内部：hover 模式下鼠标移向选项不会被判定为离开面板 -->
                   <a-select
                     v-model:value="chatStore.chatSize"
@@ -70,17 +70,19 @@
                     style="width: 100%;"
                     :get-popup-container="popupInPanel"
                   />
-                  <div class="param-label" style="margin-top: 10px;">{{ $t('chat.input.resolutionLabel') }}</div>
-                  <a-radio-group v-if="resolutionOptions.length > 0" v-model:value="chatStore.chatResolution" size="small" button-style="solid">
-                    <a-radio-button
-                      v-for="opt in resolutionOptions"
-                      :key="opt.value"
-                      :value="opt.value"
-                      :disabled="opt.value === '4k' && is4kConstrained"
-                      :title="opt.value === '4k' && is4kConstrained ? $t('chat.input.resolution4kTooltip') : ''"
-                    >{{ opt.label }}</a-radio-button>
-                  </a-radio-group>
-                  <div v-else class="param-hint">{{ $t('chat.input.qualityModeHint') }}</div>
+                  <template v-if="!pixelSizeMode">
+                    <div class="param-label" style="margin-top: 10px;">{{ $t('chat.input.resolutionLabel') }}</div>
+                    <a-radio-group v-if="resolutionOptions.length > 0" v-model:value="chatStore.chatResolution" size="small" button-style="solid">
+                      <a-radio-button
+                        v-for="opt in resolutionOptions"
+                        :key="opt.value"
+                        :value="opt.value"
+                        :disabled="opt.value === '4k' && is4kConstrained"
+                        :title="opt.value === '4k' && is4kConstrained ? $t('chat.input.resolution4kTooltip') : ''"
+                      >{{ opt.label }}</a-radio-button>
+                    </a-radio-group>
+                    <div v-else class="param-hint">{{ $t('chat.input.qualityModeHint') }}</div>
+                  </template>
                 </div>
               </template>
               <button class="tool-btn" :title="$t('chat.input.paramsTooltip')">
@@ -182,7 +184,7 @@ import type { PromptSnippet, UploadHistoryItem } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const inputValue = ref('')
 const textareaRef = ref()
 
@@ -272,9 +274,20 @@ function pickUpload(item: UploadHistoryItem) {
 // Aspect ratios filtered by provider type via uiHints.sizes.
 // Fallback full set is API Mart compatible (gpt-image-2 supports all of them).
 const SIZE_FALLBACK = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '21:9', '9:21']
+// 供应商可以不给画面比例而是给具体像素尺寸（如 AIHubMix 的 {width}x{height}），
+// 这种值原样透传给上游，界面上不再走 1K/2K/4K 那一档
+const PIXEL_SIZE_RE = /^[1-9][0-9]*x[1-9][0-9]*$/
 const sizeOptions = computed(() => {
   const sizes = settingsStore.selectedUiHints?.sizes || SIZE_FALLBACK
-  return sizes.map(v => ({ value: v, label: t(`chat.input.sizes.${v}`) }))
+  return sizes.map(v => {
+    const key = `chat.input.sizes.${v}`
+    return { value: v, label: te(key) ? t(key) : v }
+  })
+})
+const pixelSizeMode = computed(() => {
+  // 'auto' 两种模式都成立，不计入判断
+  const sizes = (settingsStore.selectedUiHints?.sizes || []).filter(v => v !== 'auto')
+  return sizes.length > 0 && sizes.every(v => PIXEL_SIZE_RE.test(v))
 })
 const canUseImages = computed(() => settingsStore.selectedUiHints?.allowImageInput !== false)
 

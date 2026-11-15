@@ -27,6 +27,7 @@ export interface AppConfig {
 export const DEFAULT_APIMART_BASE_URL = 'https://api.apimart.ai/v1'
 export const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
+export const DEFAULT_AIHUBMIX_BASE_URL = 'https://aihubmix.com/v1'
 
 // Aspect ratios for API Mart GPT-Image-2.5 (flare/sunburst) — the full set
 // including the new 3:1 / 1:3 extremes.
@@ -111,7 +112,37 @@ function clonePreset(preset: ProviderModel): ProviderModel {
     ...preset,
     extra: preset.extra ? { ...preset.extra } : undefined,
     capabilities: preset.capabilities ? { ...preset.capabilities } : undefined,
+    pricing: preset.pricing ? { ...preset.pricing } : undefined,
   }
+}
+
+// 内置预设模型补齐：缺的追加、已有的刷新 extra/capabilities/pricing（用户自己的值优先）。
+// 老模型故意删除后不会再被复活 —— 只有 preset 列表里的新条目会被追加。
+function ensureModelPresets(provider: ProviderConfig, presets: ProviderModel[], label: string): boolean {
+  let changed = false
+  for (const preset of presets) {
+    const name = preset.label || preset.id
+    const idx = provider.models.findIndex(m => m.id === preset.id)
+    if (idx === -1) {
+      provider.models.push(clonePreset(preset))
+      changed = true
+      console.log(`config.json migrated: ${label} ${name} preset appended`)
+      continue
+    }
+    const existing = provider.models[idx]
+    const next = {
+      ...existing,
+      extra: preset.extra ? { ...preset.extra, ...(existing.extra || {}) } : existing.extra,
+      capabilities: preset.capabilities ? { ...preset.capabilities, ...(existing.capabilities || {}) } : existing.capabilities,
+      pricing: preset.pricing ? { ...preset.pricing, ...(existing.pricing || {}) } : existing.pricing,
+    }
+    if (JSON.stringify(next) !== JSON.stringify(existing)) {
+      provider.models[idx] = next
+      changed = true
+      console.log(`config.json migrated: ${label} ${name} capabilities refreshed`)
+    }
+  }
+  return changed
 }
 
 // OpenRouter image model presets — snapshot of the free discovery API
@@ -162,8 +193,37 @@ export const OPENROUTER_MODEL_PRESETS: ProviderModel[] = [
   { id: 'recraft/recraft-v3', label: 'recraft-v3', enabled: false },
 ]
 
+// AIHubMix 内置预设 —— 走 OpenAI 兼容的 /v1/images/generations（响应 {data:[{url}]}）。
+// Qwen image 系直接吃 {width}x{height}：实测区间 262144~6553600 像素内的尺寸都被原样执行，
+// 所以这里给的是像素尺寸而不是画面比例，前端据此隐藏 1K/2K/4K 档位。
+// pricing.perImage 是模型页标价（USD/张），服务端按它把成本写进图片元数据。
+const AIHUBMIX_QWEN_SIZES = [
+  'auto', '1024x1024', '1536x1024', '1024x1536', '2048x2048',
+  '1024x576', '576x1024', '768x1024', '768x512', '512x1024',
+]
+
+export const AIHUBMIX_MODEL_PRESETS: ProviderModel[] = [
+  {
+    id: 'qwen-image-2.1-turbo',
+    label: 'qwen-image-2.1-turbo',
+    capabilities: { sizes: AIHUBMIX_QWEN_SIZES, defaultSize: '1024x1024' },
+    pricing: { perImage: 0.0141, currency: 'USD' },
+  },
+  {
+    id: 'qwen-image-2.1-pro',
+    label: 'qwen-image-2.1-pro',
+    enabled: false,
+    capabilities: { sizes: AIHUBMIX_QWEN_SIZES, defaultSize: '1024x1024' },
+    pricing: { perImage: 0.0352, currency: 'USD' },
+  },
+]
+
 let configFile = ''
-let appConfig: AppConfig = { providers: [], aiChat: { apiKey: '', baseUrl: DEFAULT_OPENAI_BASE_URL, model: 'gpt-4o-mini' }, promptSnippets: [] }
+let appConfig: AppConfig = {
+  providers: [],
+  aiChat: { apiKey: '', baseUrl: DEFAULT_OPENAI_BASE_URL, model: 'gpt-4o-mini' },
+  promptSnippets: [],
+}
 
 export function getConfig(): AppConfig {
   return appConfig
@@ -188,6 +248,15 @@ function defaultProviders(): ProviderConfig[] {
       apiKey: process.env.OPENROUTER_API_KEY || '',
       baseUrl: process.env.OPENROUTER_BASE_URL || DEFAULT_OPENROUTER_BASE_URL,
       models: OPENROUTER_MODEL_PRESETS.map(m => ({ ...m })),
+    },
+    {
+      id: 'aihubmix',
+      name: 'AIHubMix',
+      type: 'openai-images',
+      enabled: false,
+      apiKey: process.env.AIHUBMIX_API_KEY || '',
+      baseUrl: process.env.AIHUBMIX_BASE_URL || DEFAULT_AIHUBMIX_BASE_URL,
+      models: AIHUBMIX_MODEL_PRESETS.map(clonePreset),
     },
     {
       id: 'openai',
@@ -258,29 +327,20 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
         appConfig.aiChat = { ...appConfig.aiChat, ...saved.aiChat }
       }
       const apimart = appConfig.providers.find(p => p.id === 'apimart')
-      if (apimart) {
-        for (const preset of APIMART_UPGRADE_PRESETS) {
-          const label = preset.label || preset.id
-          const idx = apimart.models.findIndex(m => m.id === preset.id)
-          if (idx === -1) {
-            apimart.models.push(clonePreset(preset))
-            migrated = true
-            console.log(`config.json migrated: API Mart ${label} preset appended`)
-            continue
-          }
-          const existing = apimart.models[idx]
-          const next = {
-            ...existing,
-            extra: preset.extra ? { ...preset.extra, ...(existing.extra || {}) } : existing.extra,
-            capabilities: preset.capabilities
-              ? { ...preset.capabilities, ...(existing.capabilities || {}) }
-              : existing.capabilities,
-          }
-          if (JSON.stringify(next) !== JSON.stringify(existing)) {
-            apimart.models[idx] = next
-            migrated = true
-            console.log(`config.json migrated: API Mart ${label} capabilities refreshed`)
-          }
+      if (apimart && ensureModelPresets(apimart, APIMART_UPGRADE_PRESETS, 'API Mart')) {
+        migrated = true
+      }
+      // AIHubMix 之前是用户手加的自定义供应商 —— 收到内置条目下（保留 key/enabled，
+      // 只把 custom 关掉，并把缺的预设模型/价格补齐）
+      const aihubmix = appConfig.providers.find(p => p.id === 'aihubmix')
+      if (aihubmix) {
+        if (aihubmix.custom) {
+          aihubmix.custom = false
+          migrated = true
+          console.log('config.json migrated: AIHubMix is now a built-in provider')
+        }
+        if (ensureModelPresets(aihubmix, AIHUBMIX_MODEL_PRESETS, 'AIHubMix')) {
+          migrated = true
         }
       }
       // Older configs have no promptSnippets — keep the empty default.
@@ -357,6 +417,8 @@ function sanitizeProvider(p: any): ProviderConfig {
     apiKey: typeof p?.apiKey === 'string' ? p.apiKey.trim() : '',
     baseUrl: normalizeBaseUrl(p?.baseUrl, fallbackBaseUrl),
     custom: !!p?.custom,
+    ...(Number(p?.timeoutMs) > 0 ? { timeoutMs: Number(p.timeoutMs) } : {}),
+    ...(p?.resetQueueOnStart === true ? { resetQueueOnStart: true } : {}),
     models: Array.isArray(p?.models)
       ? p.models
           .map((m: any) => ({
@@ -366,10 +428,20 @@ function sanitizeProvider(p: any): ProviderConfig {
             ...(m?.enabled === false ? { enabled: false } : {}),
             ...(m?.extra && typeof m.extra === 'object' ? { extra: m.extra } : {}),
             ...sanitizeModelCapabilities(m),
+            ...sanitizeModelPricing(m),
           }))
           .filter((m: any) => m.id)
       : [],
   }
+}
+
+function sanitizeModelPricing(m: any): { pricing?: ProviderModel['pricing'] } {
+  const p = m?.pricing
+  if (!p || typeof p !== 'object') return {}
+  const perImage = Number(p.perImage)
+  if (!Number.isFinite(perImage) || perImage < 0) return {}
+  const currency = typeof p.currency === 'string' ? p.currency.trim().toUpperCase().slice(0, 8) : ''
+  return { pricing: { perImage, ...(currency ? { currency } : {}) } }
 }
 
 function sanitizeModelCapabilities(m: any): { capabilities?: ProviderModel['capabilities'] } {

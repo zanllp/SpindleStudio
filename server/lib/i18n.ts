@@ -38,6 +38,10 @@ const MESSAGES = {
     zh: '会话不存在',
     en: 'Conversation not found',
   },
+  favoriteNotFound: {
+    zh: '收藏不存在',
+    en: 'Favorite not found',
+  },
   conversationMismatch: {
     zh: '会话数据与 ID 不匹配',
     en: 'Conversation data does not match the ID',

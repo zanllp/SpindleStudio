@@ -2,6 +2,7 @@ import axios from 'axios'
 import { i18n, t } from '@/i18n'
 import type {
   GenerateRequest,
+  AllFavoriteEntry,
   Conversation,
   ConversationSummary,
   UploadHistoryItem,
@@ -79,6 +80,11 @@ export const api = {
     return response.data
   },
 
+  async getFavorites(): Promise<{ favorites: AllFavoriteEntry[] }> {
+    const response = await apiClient.get('/api/favorites')
+    return response.data
+  },
+
   async createConversation(title?: string): Promise<Conversation> {
     const response = await apiClient.post('/api/conversations', { title })
     return response.data
@@ -91,6 +97,21 @@ export const api = {
 
   async saveConversation(id: string, data: Conversation): Promise<{ success: boolean }> {
     const response = await apiClient.put(`/api/conversations/${id}`, data)
+    return response.data
+  },
+
+  async setConversationPinned(id: string, pinned: boolean): Promise<{ success: boolean; pinned: boolean }> {
+    const response = await apiClient.put(`/api/conversations/${id}/pin`, { pinned })
+    return response.data
+  },
+
+  async setConversationArchived(id: string, archived: boolean): Promise<{ success: boolean; archived: boolean }> {
+    const response = await apiClient.put(`/api/conversations/${id}/archive`, { archived })
+    return response.data
+  },
+
+  async deleteConversationFavorite(id: string, favoriteId: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete(`/api/conversations/${id}/favorites/${encodeURIComponent(favoriteId)}`)
     return response.data
   },
 

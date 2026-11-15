@@ -17,3 +17,7 @@ Thumbs.db
 # icon-concepts 是 AI 生成的过程稿，不入库
 assets/icon-concepts/
 data_backup
+server-deploy/*
+scripts/MOSS-AutoStart.vbs
+scripts/start-moss.ps1
+.agents/skills/*

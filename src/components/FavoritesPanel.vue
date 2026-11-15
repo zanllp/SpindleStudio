@@ -42,9 +42,9 @@
       <template v-else>
         <div
           v-for="fav in filtered"
-          :key="fav.id"
+          :key="`${fav.conversationId}:${fav.id}`"
           class="fav-card"
-          @click="emit('jump', fav.messageId)"
+          @click="emit('jump', fav.conversationId, fav.messageId)"
         >
           <div class="fav-card-top">
             <span class="fav-type" :class="fav.type">
@@ -55,7 +55,7 @@
               class="fav-card-btn"
               :data-tip="$t('chat.favorites.remove')"
               data-tip-placement="left"
-              @click.stop="chatStore.removeFavorite(fav.id)"
+              @click.stop="chatStore.removeFavorite(fav.id, fav.conversationId)"
             >
               <StarFilled />
             </button>
@@ -89,7 +89,7 @@
           </div>
 
           <div class="fav-card-actions" @click.stop>
-            <button class="fav-link-btn" @click="emit('jump', fav.messageId)">
+            <button class="fav-link-btn" @click="emit('jump', fav.conversationId, fav.messageId)">
               <AimOutlined /> {{ $t('chat.favorites.jump') }}
             </button>
             <button class="fav-link-btn" @click="copy(fav.text)">
@@ -110,9 +110,10 @@ import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { thumbUrl } from '@/lib/image'
+import type { AllFavoriteEntry } from '@/types'
 
 const emit = defineEmits<{
-  jump: [messageId: string]
+  jump: [conversationId: string, messageId: string]
   preview: [url: string]
 }>()
 
@@ -130,14 +131,22 @@ const FILTERS: Array<{ value: Filter; label: string }> = [
 const keyword = ref('')
 const filter = ref<Filter>('all')
 
-const favorites = computed(() => chatStore.favorites)
+const favorites = computed<AllFavoriteEntry[]>(() => {
+  const conv = chatStore.activeConversation
+  if (!conv) return []
+  return chatStore.favorites.map(favorite => ({
+    ...favorite,
+    conversationId: conv.id,
+    conversationTitle: conv.title,
+    conversationUpdatedAt: conv.updatedAt,
+  }))
+})
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
   return favorites.value.filter(f => {
     if (filter.value !== 'all' && f.type !== filter.value) return false
-    if (!kw) return true
-    return f.text.toLowerCase().includes(kw)
+    return !kw || f.text.toLowerCase().includes(kw)
   })
 })
 
