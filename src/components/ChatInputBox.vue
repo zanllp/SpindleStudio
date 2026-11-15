@@ -90,44 +90,6 @@
               </button>
             </a-popover>
 
-            <!-- 提示词优化器：预设可以有多条，但每次只引用选中的那一条；发送前先预览 -->
-            <a-popover trigger="click" placement="topLeft">
-              <template #content>
-                <div class="optimizer-panel">
-                  <div class="optimizer-panel-title">{{ $t('chat.input.optimizer.title') }}</div>
-                  <div class="optimizer-options">
-                    <button
-                      class="optimizer-option"
-                      :class="{ active: !activeOptimizer }"
-                      @click="selectOptimizer('off')"
-                    >
-                      <span>{{ $t('chat.input.optimizer.off') }}</span>
-                      <small>{{ $t('chat.input.optimizer.offHint') }}</small>
-                    </button>
-                    <button
-                      v-for="o in settingsStore.optimizers"
-                      :key="o.id"
-                      class="optimizer-option"
-                      :class="{ active: optimizerId === o.id }"
-                      @click="selectOptimizer(o.id)"
-                    >
-                      <span>{{ o.name || $t('settings.optimizers.untitled') }}</span>
-                      <small>{{ promptPreview(o.prompt) }}</small>
-                    </button>
-                  </div>
-                  <div v-if="settingsStore.optimizers.length === 0" class="snippet-panel-empty">
-                    <div>{{ $t('chat.input.optimizer.empty') }}</div>
-                    <button class="snippet-goto-btn" @click="goAddOptimizer">
-                      {{ $t('chat.input.optimizer.goAdd') }}
-                    </button>
-                  </div>
-                </div>
-              </template>
-              <button class="optimizer-trigger" :class="{ active: !!activeOptimizer }" :title="$t('chat.input.optimizer.tooltip')">
-                <ThunderboltOutlined />
-                <span>{{ activeOptimizerLabel }}</span>
-              </button>
-            </a-popover>
             <!-- 常用提示词：点击智能追加到输入框 -->
             <a-popover v-model:open="snippetsOpen" trigger="hover" placement="topLeft">
               <template #content>
@@ -204,35 +166,6 @@
         </div>
       </div>
 
-      <a-modal
-        :open="optimizerOpen"
-        :title="$t('chat.input.optimizer.previewTitle')"
-        :footer="null"
-        width="760px"
-        @cancel="backToEdit"
-      >
-        <div v-if="optimizerLoading" class="optimizer-loading">
-          <a-spin />
-          <span>{{ $t('chat.input.optimizer.optimizing') }}</span>
-        </div>
-        <template v-else-if="optimizerResult">
-          <div class="optimizer-compare">
-            <div class="optimizer-column">
-              <div class="optimizer-column-title">{{ $t('chat.input.optimizer.original') }}</div>
-              <pre class="optimizer-prompt">{{ optimizerSource }}</pre>
-            </div>
-            <div class="optimizer-column">
-              <div class="optimizer-column-title">{{ $t('chat.input.optimizer.optimized') }}</div>
-              <pre class="optimizer-prompt">{{ optimizerResult.prompt }}</pre>
-            </div>
-          </div>
-          <div class="optimizer-actions">
-            <button class="optimizer-secondary" :disabled="optimizerSubmitting" @click="sendOriginal">{{ $t('chat.input.optimizer.useOriginal') }}</button>
-            <button class="optimizer-secondary" @click="backToEdit">{{ $t('chat.input.optimizer.backToEdit') }}</button>
-            <button class="optimizer-primary" :disabled="optimizerSubmitting" @click="confirmOptimized">{{ $t('chat.input.optimizer.useOptimized') }}</button>
-          </div>
-        </template>
-      </a-modal>
       <div class="input-hint">{{ $t('chat.input.hint') }}</div>
     </div>
   </div>
@@ -240,14 +173,14 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import { PaperClipOutlined, ArrowUpOutlined, CloseCircleFilled, ControlOutlined, MinusOutlined, PlusOutlined, SnippetsOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
+import { PaperClipOutlined, ArrowUpOutlined, CloseCircleFilled, ControlOutlined, MinusOutlined, PlusOutlined, SnippetsOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import api from '@/api'
 import { thumbUrl } from '@/lib/image'
-import type { PromptOptimizeResult, PromptSnippet, UploadHistoryItem } from '@/types'
+import type { PromptSnippet, UploadHistoryItem } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
@@ -476,100 +409,11 @@ function handlePressEnter(e: KeyboardEvent) {
   handleSend()
 }
 
-const OPTIMIZER_STORAGE_KEY = 'app_prompt_optimizer'
-// 单选：'off' 或某个预设的 id；预设可以有多条，但一次只引用一条
-const optimizerId = ref<string>(localStorage.getItem(OPTIMIZER_STORAGE_KEY) || 'off')
-const optimizerOpen = ref(false)
-const optimizerLoading = ref(false)
-const optimizerSubmitting = ref(false)
-const optimizerSource = ref('')
-const optimizerResult = ref<PromptOptimizeResult | null>(null)
-
-const activeOptimizer = computed(() => settingsStore.optimizers.find(o => o.id === optimizerId.value))
-const activeOptimizerLabel = computed(() =>
-  activeOptimizer.value
-    ? activeOptimizer.value.name || t('settings.optimizers.untitled')
-    : t('chat.input.optimizer.offShort'),
-)
-
-watch(optimizerId, (value) => {
-  localStorage.setItem(OPTIMIZER_STORAGE_KEY, value)
-})
-
-// 选中的预设被删掉后自动退回「关闭」，免得每发一条都收到 400
-watch(
-  () => settingsStore.optimizers.map(o => o.id).join('|'),
-  (ids) => {
-    if (!settingsStore.loaded || optimizerId.value === 'off') return
-    if (!ids.split('|').includes(optimizerId.value)) optimizerId.value = 'off'
-  },
-)
-
-function selectOptimizer(id: string) {
-  optimizerId.value = id
-}
-
-// 面板里给每个预设一行提示词摘要，方便区分
-function promptPreview(text: string) {
-  const oneLine = (text || '').replace(/\s+/g, ' ').trim()
-  return oneLine.length > 48 ? `${oneLine.slice(0, 48)}…` : oneLine || t('settings.optimizers.untitled')
-}
-
-function goAddOptimizer() {
-  settingsStore.initialSection = 'optimizers'
-  settingsStore.settingsOpen = true
-}
-
 async function handleSend() {
   const prompt = inputValue.value.trim()
-  if (!prompt || optimizerLoading.value) return
-  const selected = activeOptimizer.value
-  if (!selected) {
-    inputValue.value = ''
-    await chatStore.sendMessage(prompt)
-    return
-  }
-  optimizerSource.value = prompt
-  optimizerLoading.value = true
-  optimizerResult.value = null
-  optimizerOpen.value = true
-  try {
-    optimizerResult.value = await api.optimizePrompt({
-      optimizerId: selected.id,
-      prompt,
-    })
-  } catch (e: any) {
-    optimizerOpen.value = false
-    message.error(e.response?.data?.error || e.message || t('errors.optimizeFailed'))
-  } finally {
-    optimizerLoading.value = false
-  }
-}
-
-async function submitOptimizerChoice(prompt: string) {
-  if (!prompt || optimizerSubmitting.value) return
-  optimizerSubmitting.value = true
-  try {
-    optimizerOpen.value = false
-    inputValue.value = ''
-    await chatStore.sendMessage(prompt)
-  } finally {
-    optimizerSubmitting.value = false
-  }
-}
-
-async function confirmOptimized() {
-  const prompt = optimizerResult.value?.prompt?.trim()
-  if (prompt) await submitOptimizerChoice(prompt)
-}
-
-async function sendOriginal() {
-  await submitOptimizerChoice(optimizerSource.value)
-}
-function backToEdit() {
-  optimizerOpen.value = false
-  inputValue.value = optimizerSource.value
-  nextTick(() => textareaRef.value?.focus())
+  if (!prompt) return
+  inputValue.value = ''
+  await chatStore.sendMessage(prompt)
 }
 </script>
 
@@ -730,164 +574,6 @@ function backToEdit() {
   user-select: none;
 }
 
-/* ---------- 提示词优化器 ---------- */
-
-.optimizer-trigger {
-  height: 32px;
-  margin-left: 2px;
-  padding: 0 9px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--toolbtn-text);
-  font-size: 12px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.optimizer-trigger:hover,
-.optimizer-trigger.active {
-  background: var(--toolbtn-hover-bg);
-  border-color: var(--border-strong);
-  color: var(--toolbtn-hover-text);
-}
-
-.optimizer-panel {
-  width: 280px;
-  padding: 2px;
-}
-
-.optimizer-panel-title {
-  margin-bottom: 8px;
-  color: var(--text-faint);
-  font-size: 12px;
-}
-
-/* 预设多的时候面板内滚动，不撑高页面 */
-.optimizer-options {
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.optimizer-option {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.optimizer-option:hover,
-.optimizer-option.active {
-  border-color: var(--border-subtle);
-  background: var(--toolbtn-hover-bg);
-}
-
-.optimizer-option small {
-  color: var(--text-faint);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.optimizer-loading {
-  min-height: 160px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.optimizer-compare {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.optimizer-column {
-  min-width: 0;
-}
-
-.optimizer-column-title {
-  margin-bottom: 6px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.optimizer-prompt {
-  height: 260px;
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: var(--surface-subtle, rgba(127, 127, 127, 0.05));
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow: auto;
-}
-
-.optimizer-actions {
-  margin-top: 14px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.optimizer-primary,
-.optimizer-secondary {
-  padding: 7px 13px;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.optimizer-primary {
-  border: var(--send-border);
-  background: var(--send-bg);
-  box-shadow: var(--send-shadow);
-  color: var(--send-text);
-}
-
-.optimizer-secondary {
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.optimizer-secondary:disabled,
-.optimizer-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.optimizer-secondary:hover {
-  border-color: var(--border-strong);
-  color: var(--text-primary);
-}
-
-@media (max-width: 720px) {
-  .optimizer-compare {
-    grid-template-columns: 1fr;
-  }
-  .optimizer-prompt {
-    height: 180px;
-  }
-}
 /* 通道下拉：无边框弱化成文本级控件 */
 .model-select {
   min-width: 128px;

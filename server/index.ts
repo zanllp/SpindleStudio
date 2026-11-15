@@ -15,7 +15,6 @@ import { createTask, getTask, initTasks, updateTask } from './lib/tasks'
 import { saveGeneratedImages } from './lib/image-save'
 import { extractErrorMessage } from './lib/error'
 import { t } from './lib/i18n'
-import { optimizePrompt } from './lib/prompt-optimizer'
 import {
   deleteConversationFavorite,
   deleteConversation,
@@ -130,7 +129,6 @@ app.put('/api/config', async (req, res) => {
       providers: req.body?.providers,
       aiChat: req.body?.aiChat,
       promptSnippets: req.body?.promptSnippets,
-      optimizers: req.body?.optimizers,
     })
     io.emit('config-changed')
     res.json(saved)
@@ -430,39 +428,6 @@ app.get('/api/generate/task/:taskId', async (req, res) => {
   }
 })
 
-// ==================== Prompt optimizer (pre-generation, no upstream call) ====================
-
-app.post('/api/prompt/optimize', async (req, res) => {
-  const optimizerId = String(req.body?.optimizerId || '').trim()
-  const prompt = String(req.body?.prompt || '').trim()
-  if (!prompt) return res.status(400).json({ error: t(req, 'promptRequired') })
-
-  const cfg = getConfig()
-  const optimizer = cfg.optimizers.find(o => o.id === optimizerId)
-  if (!optimizer) return res.status(400).json({ error: t(req, 'unknownOptimizer') })
-  if (!optimizer.prompt.trim()) return res.status(400).json({ error: t(req, 'optimizerPromptMissing') })
-
-  try {
-    const ai = cfg.aiChat
-    // 连接（baseUrl / apiKey / model）共用设置里的「AI 模型」；
-    // 提示词来自被选中的那一个预设 —— 一次请求只跑一个优化器，不合并、不链式。
-    const baseUrl = ai.baseUrl
-    const matchingProvider = cfg.providers.find(p => p.apiKey && p.baseUrl === baseUrl)
-    const apiKey = ai.apiKey || matchingProvider?.apiKey || ''
-    const model = ai.model
-    if (!apiKey || !model) return res.status(503).json({ error: t(req, 'promptOptimizerNotConfigured') })
-    console.log(`[prompt-optimizer] rewrite: optimizer=${optimizer.name || optimizer.id} model=${model}`)
-    return res.json(await optimizePrompt(optimizer.id, prompt, {
-      baseUrl,
-      apiKey,
-      model,
-      systemPrompt: optimizer.prompt,
-    }))
-  } catch (error: any) {
-    console.error('prompt optimize failed:', error.response?.data || error.message)
-    return res.status(error.response?.status || 502).json({ error: extractErrorMessage(error) })
-  }
-})
 // ==================== AI chat (optional, used for the "AI title" feature) ====================
 
 app.post('/api/ai-chat', async (req, res) => {

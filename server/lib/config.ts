@@ -11,14 +11,6 @@ export interface AiChatConfig {
   model: string
 }
 
-// Preset prompt optimizer. The UI lets the user pick exactly one per message —
-// presets are never combined, and each request carries a single optimizer id.
-export interface OptimizerPreset {
-  id: string
-  name: string
-  prompt: string
-}
-
 // Saved prompt shortcut — filled into the chat input from the toolbar panel
 export interface PromptSnippet {
   id: string
@@ -30,55 +22,12 @@ export interface AppConfig {
   providers: ProviderConfig[]
   aiChat: AiChatConfig
   promptSnippets: PromptSnippet[]
-  optimizers: OptimizerPreset[]
 }
 
 export const DEFAULT_APIMART_BASE_URL = 'https://api.apimart.ai/v1'
 export const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 export const DEFAULT_AIHUBMIX_BASE_URL = 'https://aihubmix.com/v1'
-
-// 提示词优化器的默认系统提示词。它只是「优化器预设」里第一条的初始内容 ——
-// 用户在设置页里可以增删改，服务端只发被选中的那一条，代码里没有第二份提示词。
-// 核心问题：用户常写「房间里有许多物品」「人物之间有 5 句对话」这类只报数量、
-// 不给内容的描述，模型不知道该画什么。优化器的主要职责就是把它翻译成具体对象。
-// 依据：server-deploy/MOSS_PROMPT_GUIDE.md（文字渲染、4096 token、可验证姿势）
-// 与 .agents/skills/moss-image-batch-prompt（一句场景 + 2~3 个具体道具最有效）。
-export const DEFAULT_OPTIMIZER_PROMPT = `你是 MOSS-Image 的提示词编译器。用户写的是「想要什么」，你要翻译成「模型具体该画什么」。只输出改写后的提示词，不要解释、不要加引号包裹、不要 Markdown 标题、不要加"高质量/8K/杰作"这类空话。用输入的语言输出（中文进就中文出）。
-
-一、最重要的一件事：把「数量」和「形容词」翻译成「可以画出来的具体东西」
-
-用户经常只报数量和存在，不报内容，模型就看不懂，画出来是空的、糊的、乱的。遇到这类写法，你必须替他把内容补具体，这不是增加需求，是把需求落实：
-
-- "房间里有许多物品""背景很满""lots of stuff" → 补 2 到 3 个符合该场景的具体道具，并写清位置。例如：沙发、茶几上拆开的零食袋、边柜上摆着的婚纱照、电视的蓝光。不要写"很多""各种""杂七杂八"。
-- "人物之间有 5 句对话""充满对话""弹幕很多" → 必须写出具体台词。用户给了原台词就照抄；只说了数量就按剧情补 3 到 5 句短句，每句不超过 12 字；然后指定分格/分栏版式，每格一句、对应一个人物的半身画面。单张图最多放 1 条大标题或 2 句短文案，超过就必须分格，不要硬塞。
-- "很乱""很温馨""很豪华""很有年味" → 换成 2 到 3 个能看出这件事的细节（"地上散着纸箱和拆开的快递""墙上贴着早生贵子"），不要堆形容词。
-- "感觉画不出来""不知道放哪" → 直接给出主体在画面中的位置、朝向、机位。
-
-二、补内容时的边界：可以补「具体化」，不可以改「剧情」
-
-- 可以补：道具、陈设、材质、光影、机位、可验证的动作细节、按剧情合理推断的短台词。
-- 不可以改：主体身份、人数关系、年龄、身材与脸部锚点、服装款式、画风、用户声明的排除项，以及用户已经写明的台词原文（引号里的字一个字都不改）。
-- 补出来的东西必须符合场景和人物身份，不引入新人物、不增加新情节、不改变事件顺序。
-
-三、剩下的信息要精简
-
-- 道具总数控制在 2 到 3 个，选与主体或剧情最相关的，写在镜头拍得到的位置；不要列成清单，超过 4 个会把主体挤小。
-- 一张图只有一个决定性瞬间；用户写了一串连续动作时，保留最能说明剧情的那一帧，其余转成静态描述（"刚回头，手还停在门把上"）。
-- 主要人物超过 3 个时只画最关键的几个，其余用"背景里虚化的人群"带过。
-- 文字要出现在画面上时：必须用引号原样写，需要换行就在引号里写 \\n，并交代位置、字号与颜色倾向（例如"顶部居中的深蓝大标题"）。
-
-四、姿势和表情要写成可验证的句子
-
-身体朝向、手脚位置、镜头距离与角度、表情的眼神方向和唇角状态都要落到具体描述。"身体正侧面、前脚掌着地、双手提着裙摆"胜过"侧身回眸"；"低头看着对方、嘴唇微张"胜过"表情暧昧"。
-
-五、不要做的
-
-不要堆同义词；不要扩写成小作文；不要写"画面精美""氛围感十足"这类没有画面内容的句子；不要重复用户已经写清楚的部分；不要在输出的提示词之外加任何说明文字。
-
-六、输出格式
-
-一段有结构的提示词：先一句话交代画面主体与场景，再分段写人物、动作、服饰、场景道具、画面文字、光线。段与段之间空一行，不要编号、不要小标题、不要解释。`
 
 // Aspect ratios for API Mart GPT-Image-2.5 (flare/sunburst) — the full set
 // including the new 3:1 / 1:3 extremes.
@@ -274,23 +223,10 @@ let appConfig: AppConfig = {
   providers: [],
   aiChat: { apiKey: '', baseUrl: DEFAULT_OPENAI_BASE_URL, model: 'gpt-4o-mini' },
   promptSnippets: [],
-  optimizers: [],
 }
 
 export function getConfig(): AppConfig {
   return appConfig
-}
-
-// 开箱即用的优化器预设：只有一条，用户可以照着再建几条（人像收敛、海报排版……），
-// 但每次发送只会用被选中的那一条。
-function defaultOptimizers(): OptimizerPreset[] {
-  return [
-    {
-      id: 'optimizer_default',
-      name: '通用优化',
-      prompt: DEFAULT_OPTIMIZER_PROMPT,
-    },
-  ]
 }
 
 function defaultProviders(): ProviderConfig[] {
@@ -345,7 +281,6 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
       model: 'gpt-4o-mini',
     },
     promptSnippets: [],
-    optimizers: defaultOptimizers(),
   }
 
   let saved: any = null
@@ -389,13 +324,7 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
         }
       }
       if (saved.aiChat) {
-        // 只取这三项：老配置里可能还留着 aiChat.optimizerPrompt，这里不迁移，
-        // 下次写盘时自然消失（优化器已经改成独立的预设列表）。
-        appConfig.aiChat = {
-          apiKey: typeof saved.aiChat.apiKey === 'string' ? saved.aiChat.apiKey : appConfig.aiChat.apiKey,
-          baseUrl: typeof saved.aiChat.baseUrl === 'string' ? saved.aiChat.baseUrl : appConfig.aiChat.baseUrl,
-          model: typeof saved.aiChat.model === 'string' ? saved.aiChat.model : appConfig.aiChat.model,
-        }
+        appConfig.aiChat = { ...appConfig.aiChat, ...saved.aiChat }
       }
       const apimart = appConfig.providers.find(p => p.id === 'apimart')
       if (apimart && ensureModelPresets(apimart, APIMART_UPGRADE_PRESETS, 'API Mart')) {
@@ -418,13 +347,6 @@ export async function initConfig(dataDir: string): Promise<AppConfig> {
       // Empty-prompt items are kept: a freshly created snippet is blank until edited
       if (Array.isArray(saved.promptSnippets)) {
         appConfig.promptSnippets = (saved.promptSnippets as any[]).map(sanitizeSnippet).filter((s: PromptSnippet) => s.id)
-      }
-      // 优化器预设：老配置没有这个数组就落一份默认预设；用户删光则保持空（不复活）
-      if (Array.isArray(saved.optimizers)) {
-        appConfig.optimizers = (saved.optimizers as any[]).map(sanitizeOptimizer).filter((o: OptimizerPreset) => o.id)
-      } else {
-        migrated = true
-        console.log('config.json migrated: optimizers seeded with the default preset')
       }
       if (migrated) {
         await persistConfig()
@@ -465,19 +387,8 @@ export async function saveConfig(patch: Partial<AppConfig>): Promise<AppConfig> 
   if (Array.isArray(patch.promptSnippets)) {
     appConfig.promptSnippets = patch.promptSnippets.map(sanitizeSnippet).filter(s => s.id)
   }
-  if (Array.isArray(patch.optimizers)) {
-    appConfig.optimizers = patch.optimizers.map(sanitizeOptimizer).filter(o => o.id)
-  }
   await persistConfig()
   return appConfig
-}
-
-function sanitizeOptimizer(o: any): OptimizerPreset {
-  return {
-    id: String(o?.id || '').slice(0, 64),
-    name: String(o?.name || '').trim().slice(0, 64),
-    prompt: typeof o?.prompt === 'string' ? o.prompt.slice(0, 8000) : '',
-  }
 }
 
 function sanitizeSnippet(s: any): PromptSnippet {

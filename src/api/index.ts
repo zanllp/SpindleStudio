@@ -7,8 +7,6 @@ import type {
   ConversationSummary,
   UploadHistoryItem,
   AppConfig,
-  PromptOptimizeRequest,
-  PromptOptimizeResult,
 } from '@/types'
 
 const apiClient = axios.create({
@@ -61,12 +59,6 @@ export const api = {
     return response.data
   },
 
-  // ==================== Prompt optimization ====================
-
-  async optimizePrompt(request: PromptOptimizeRequest): Promise<PromptOptimizeResult> {
-    const response = await apiClient.post('/api/prompt/optimize', request)
-    return response.data
-  },
   // ==================== Image generation ====================
 
   // Submit a generation task (unified across providers)

@@ -30,18 +30,6 @@ const MESSAGES = {
     zh: 'OpenAI API Key 未配置（可选功能，在设置中填写后可用）',
     en: 'OpenAI API Key is not configured (optional feature; fill it in Settings to enable)',
   },
-  promptOptimizerNotConfigured: {
-    zh: '提示词优化器还没配置好：请到设置 → AI 模型填写 API 密钥和模型',
-    en: 'Prompt optimizer is not configured yet. Fill in the API Key and model under Settings → AI Model',
-  },
-  unknownOptimizer: {
-    zh: '优化器不存在，可能已被删除，请在设置 → 优化器里重新选择',
-    en: 'That optimizer no longer exists. Pick another one under Settings → Optimizers',
-  },
-  optimizerPromptMissing: {
-    zh: '这个优化器还没有填写提示词，请到设置 → 优化器里补上',
-    en: 'This optimizer has no prompt yet. Add one under Settings → Optimizers',
-  },
   invalidConversationId: {
     zh: '非法会话 ID',
     en: 'Invalid conversation ID',

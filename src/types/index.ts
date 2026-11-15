@@ -90,19 +90,11 @@ export interface PromptSnippet {
   prompt: string  // full text inserted into the input box
 }
 
-// Preset prompt optimizer. Only the selected one runs — never several per request.
-export interface OptimizerPreset {
-  id: string
-  name: string
-  prompt: string  // system prompt sent to the chat model
-}
-
 // App configuration managed by the settings page
 export interface AppConfig {
   providers: ProviderConfig[]
   aiChat: AiChatConfig
   promptSnippets: PromptSnippet[]
-  optimizers: OptimizerPreset[]
 }
 
 // Image generation request (proxied to the configured provider API)
@@ -118,21 +110,6 @@ export interface GenerateRequest {
   referenceImagePaths?: string[] // original relative paths for img2img metadata (not sent to upstream)
 }
 
-// ==================== Prompt optimizer ====================
-
-// 'off' is a UI-only state: the original prompt goes straight to generation
-export type OptimizerSelection = 'off' | string
-
-export interface PromptOptimizeResult {
-  optimizerId: string
-  model: string
-  prompt: string
-}
-
-export interface PromptOptimizeRequest {
-  optimizerId: string
-  prompt: string
-}
 // ==================== Chat types ====================
 
 // Generation provider (provider id from AppConfig.providers)
