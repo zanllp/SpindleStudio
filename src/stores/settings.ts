@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import api from '@/api'
 import { t } from '@/i18n'
-import type { AppConfig, PromptSnippet, ProviderConfig, ProviderModel } from '@/types'
+import type { AppConfig, OptimizerPreset, PromptSnippet, ProviderConfig, ProviderModel } from '@/types'
 
 // localStorage key remembering the last selected provider/model
 const SELECTED_MODEL_KEY = 'app_selected_model'
@@ -15,8 +15,12 @@ function genSnippetId(): string {
   return `snippet_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function genOptimizerId(): string {
+  return `optimizer_${Math.random().toString(36).slice(2, 10)}`
+}
+
 export const useSettingsStore = defineStore('settings', () => {
-  const config = ref<AppConfig>({ providers: [], aiChat: { apiKey: '', baseUrl: '', model: 'gpt-4o-mini' }, promptSnippets: [] })
+  const config = ref<AppConfig>({ providers: [], aiChat: { apiKey: '', baseUrl: '', model: 'gpt-4o-mini' }, promptSnippets: [], optimizers: [] })
   const loaded = ref(false)
   const settingsOpen = ref(false)
   // Section the settings page should land on next time it opens (set by deep
@@ -95,6 +99,29 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function saveAiChat(apiKey: string, baseUrl: string, model: string) {
     config.value = await api.saveConfig({ aiChat: { apiKey, baseUrl, model } })
+  }
+
+  // ==================== 提示词优化器预设 ====================
+  // 预设可以有多条，但每次发送只引用其中一条（单选状态由输入框自己维护）
+
+  const optimizers = computed(() => config.value.optimizers ?? [])
+
+  async function saveOptimizers(next: OptimizerPreset[]) {
+    config.value = await api.saveConfig({ optimizers: next })
+  }
+
+  async function addOptimizer(): Promise<OptimizerPreset> {
+    const optimizer: OptimizerPreset = { id: genOptimizerId(), name: '', prompt: '' }
+    await saveOptimizers([...optimizers.value, optimizer])
+    return optimizer
+  }
+
+  function updateOptimizer(id: string, patch: Partial<Omit<OptimizerPreset, 'id'>>) {
+    return saveOptimizers(optimizers.value.map(o => (o.id === id ? { ...o, ...patch } : o)))
+  }
+
+  function removeOptimizer(id: string) {
+    return saveOptimizers(optimizers.value.filter(o => o.id !== id))
   }
 
   // ==================== 常用提示词 ====================
@@ -187,5 +214,10 @@ export const useSettingsStore = defineStore('settings', () => {
     addPromptSnippet,
     updatePromptSnippet,
     removePromptSnippet,
+    optimizers,
+    saveOptimizers,
+    addOptimizer,
+    updateOptimizer,
+    removeOptimizer,
   }
 })

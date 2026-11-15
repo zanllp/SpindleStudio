@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { nextTick, onMounted, watch } from 'vue'
 import { BgColorsOutlined, GlobalOutlined } from '@ant-design/icons-vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import SettingsView from '@/components/SettingsView.vue'
@@ -55,9 +55,13 @@ const themeStore = useThemeStore()
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 
+// 立绘工坊深链带来的出图参数（?size= 比例 / ?resolution= 分辨率）：
+// 必须在 setup 阶段先抓下来——下面 selectConversation 会触发 replaceState 改写 URL，晚读就读不到了。
+const urlGenParams = new URLSearchParams(window.location.search)
+
 // 多窗口：?conv=<id> 让窗口直达指定会话（缺省打开最近会话）
 function initialConversationId(): string | null {
-  const id = new URLSearchParams(window.location.search).get('conv')
+  const id = urlGenParams.get('conv')
   return id && chatStore.conversationList.some(c => c.id === id) ? id : null
 }
 
@@ -80,13 +84,18 @@ watch(
 )
 
 // URL 跟随当前选中会话：切换侧栏时 replaceState 更新 ?conv=，刷新/复制链接能还原
+// （立绘工坊深链带来的 size/resolution 要一起留着，别被这次改写冲掉）
 watch(
   () => chatStore.activeConversationId,
   id => {
-    const url = id
-      ? `${window.location.pathname}?conv=${id}`
-      : window.location.pathname
-    window.history.replaceState(null, '', url)
+    const q = new URLSearchParams()
+    if (id) q.set('conv', id)
+    const size = urlGenParams.get('size')
+    const resolution = urlGenParams.get('resolution')
+    if (size) q.set('size', size)
+    if (resolution) q.set('resolution', resolution)
+    const qs = q.toString()
+    window.history.replaceState(null, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname)
   },
 )
 
@@ -98,6 +107,15 @@ onSync({
   onConfigChanged: () => settingsStore.loadConfig(),
 })
 
+// 立绘工坊深链带来的出图参数覆盖：?size=（比例，如 2:3）、?resolution=（1k/2k/4k）。
+// 只在参数合法时覆盖，不传就保持模型默认档。
+function applyUrlGenParams() {
+  const size = urlGenParams.get('size')
+  const resolution = urlGenParams.get('resolution')
+  if (size && /^\d{1,2}:\d{1,2}$/.test(size)) chatStore.chatSize = size
+  if (resolution && ['1k', '2k', '4k'].includes(resolution)) chatStore.chatResolution = resolution as '1k' | '2k' | '4k'
+}
+
 onMounted(async () => {
   await settingsStore.loadConfig()
   await chatStore.loadConversations()
@@ -106,6 +124,9 @@ onMounted(async () => {
     await chatStore.selectConversation(target)
   }
   // 无可用生图供应商时由 WelcomeModal 引导初始化（见其 visible 逻辑）
+  // 立绘工坊深链带来的比例/分辨率：等模型默认档落定后再盖，避免被 applyModelDefaults 顶掉
+  await nextTick()
+  applyUrlGenParams()
 })
 </script>
 

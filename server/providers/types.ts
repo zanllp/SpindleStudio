@@ -12,6 +12,7 @@ export type ProviderType = 'apimart-task' | 'openai-images' | 'openrouter-images
 // so one provider can host models with different aspect-ratio/resolution
 // support (e.g. API Mart gpt-image-2 vs the GPT-Image-2.5 presets).
 export interface ProviderModelCapabilities {
+  // 画面比例（'1:1'）或供应商给的像素尺寸（'1024x1024'）。后者原样透传给上游。
   sizes?: string[]
   defaultSize?: string
   resolutions?: string[]
@@ -19,6 +20,12 @@ export interface ProviderModelCapabilities {
   // Overrides the provider-level "4K only on widescreen" hint. GPT-Image-2.5
   // supports 4K on every aspect ratio, so presets opt out with false.
   widescreenOnly4k?: boolean
+}
+
+// 单张图的价格，用于把成本写进图片元数据。缺省表示未知 —— 元数据里就不写成本。
+export interface ProviderModelPricing {
+  perImage?: number
+  currency?: string // ISO 4217，默认 USD
 }
 
 export interface ProviderModel {
@@ -30,6 +37,7 @@ export interface ProviderModel {
   // Extra fields merged into the upstream payload (e.g. { official_fallback: true })
   extra?: Record<string, any>
   capabilities?: ProviderModelCapabilities
+  pricing?: ProviderModelPricing
 }
 
 export interface ProviderConfig {
@@ -41,6 +49,8 @@ export interface ProviderConfig {
   baseUrl: string
   models: ProviderModel[]
   custom?: boolean // user-added providers can be renamed/deleted
+  timeoutMs?: number // per-provider HTTP timeout for sync image providers
+  resetQueueOnStart?: boolean // clear stale upstream jobs before accepting new runs
 }
 
 // Unified input the frontend submits for one generation task
@@ -90,4 +100,6 @@ export interface ProviderAdapter {
   submit(input: GenerateSubmitInput, provider: ProviderConfig, model: ProviderModel): Promise<{ taskId: string }>
   // runtimeInput carries the non-persisted submit data (reference images) for sync providers
   poll(task: GenerationTask, provider: ProviderConfig, runtimeInput?: GenerateSubmitInput): Promise<PollOutcome>
+  // Optional provider-specific queue reset used when the app restarts.
+  resetRemoteQueue?(provider: ProviderConfig): Promise<Record<string, any>>
 }

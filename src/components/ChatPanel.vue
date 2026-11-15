@@ -1,6 +1,6 @@
 <template>
   <a-layout class="chat-panel">
-    <a-layout-sider width="260" class="chat-sider">
+    <a-layout-sider width="320" class="chat-sider">
       <ConversationSidebar />
     </a-layout-sider>
     <a-layout-content class="chat-main">
@@ -12,6 +12,10 @@
       <FavoritesPanel
         v-if="chatStore.favoritesOpen"
         @jump="jumpToFavorite"
+        @preview="previewImage"
+      />
+      <AllFavoritesModal
+        @jump="jumpFromAllFavorites"
         @preview="previewImage"
       />
     </a-layout-content>
@@ -26,6 +30,7 @@ import ChatMessageList from './ChatMessageList.vue'
 import ChatInputBox from './ChatInputBox.vue'
 import GenerationQueuePanel from './GenerationQueuePanel.vue'
 import FavoritesPanel from './FavoritesPanel.vue'
+import AllFavoritesModal from './AllFavoritesModal.vue'
 
 const chatStore = useChatStore()
 const msgListRef = ref<InstanceType<typeof ChatMessageList>>()
@@ -39,9 +44,19 @@ async function jumpToMessage(convId: string, messageId: string) {
   msgListRef.value?.scrollToMessage(messageId)
 }
 
-// 会话内收藏只属于当前会话，直接滚动定位
-function jumpToFavorite(messageId: string) {
+// 收藏可能属于其他会话：先切换会话，再滚动定位
+async function jumpToFavorite(conversationId: string, messageId: string) {
+  if (chatStore.activeConversationId !== conversationId) {
+    await chatStore.selectConversation(conversationId)
+  }
+  await nextTick()
   msgListRef.value?.scrollToMessage(messageId)
+}
+
+async function jumpFromAllFavorites(conversationId: string, messageId: string) {
+  chatStore.allFavoritesOpen = false
+  await nextTick()
+  await jumpToFavorite(conversationId, messageId)
 }
 
 function previewImage(url: string) {

@@ -8,7 +8,8 @@ import type { ProviderAdapter, ProviderType } from './types'
 // persisted). Lets the UI render provider-specific constraints without
 // hardcoding provider types in components.
 export interface ProviderUiHints {
-  // Aspect ratios the provider supports. When absent the UI shows the full set.
+  // Sizes the provider supports: aspect ratios ('1:1') or vendor pixel sizes
+  // ('1024x1024'). Absent = the UI shows the full aspect-ratio set.
   sizes?: string[]
   // 4K resolution is only offered for widescreen aspect ratios (API Mart limit)
   widescreenOnly4k?: boolean

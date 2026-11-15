@@ -28,7 +28,8 @@ export type ProviderType = 'apimart-task' | 'openai-images' | 'openrouter-images
 // UI-facing capability hints, code-derived per provider type and merged into
 // each provider by GET /api/config (never persisted to config.json)
 export interface ProviderUiHints {
-  // Aspect ratios the provider supports; absent = show all
+  // Sizes the provider supports: aspect ratios ('1:1') or vendor pixel sizes
+  // ('1024x1024'); absent = the UI shows the full aspect-ratio set
   sizes?: string[]
   // 4K resolution is only offered for widescreen aspect ratios
   widescreenOnly4k?: boolean
@@ -40,6 +41,8 @@ export interface ProviderUiHints {
 }
 
 export interface ProviderModelCapabilities {
+  // 画面比例（'1:1'）或供应商给的像素尺寸（'1024x1024'）。全是像素尺寸时
+  // 前端不再显示 1K/2K/4K 档位，值原样发给上游。
   sizes?: string[]
   defaultSize?: string
   resolutions?: string[]
@@ -58,6 +61,8 @@ export interface ProviderModel {
   // Extra fields merged into the upstream payload (e.g. { official_fallback: true })
   extra?: Record<string, any>
   capabilities?: ProviderModelCapabilities
+  // 单张图的价格（供应商标价，服务端据此把成本写进图片元数据）
+  pricing?: { perImage?: number; currency?: string }
 }
 
 export interface ProviderConfig {
@@ -85,11 +90,19 @@ export interface PromptSnippet {
   prompt: string  // full text inserted into the input box
 }
 
+// Preset prompt optimizer. Only the selected one runs — never several per request.
+export interface OptimizerPreset {
+  id: string
+  name: string
+  prompt: string  // system prompt sent to the chat model
+}
+
 // App configuration managed by the settings page
 export interface AppConfig {
   providers: ProviderConfig[]
   aiChat: AiChatConfig
   promptSnippets: PromptSnippet[]
+  optimizers: OptimizerPreset[]
 }
 
 // Image generation request (proxied to the configured provider API)
@@ -105,6 +118,21 @@ export interface GenerateRequest {
   referenceImagePaths?: string[] // original relative paths for img2img metadata (not sent to upstream)
 }
 
+// ==================== Prompt optimizer ====================
+
+// 'off' is a UI-only state: the original prompt goes straight to generation
+export type OptimizerSelection = 'off' | string
+
+export interface PromptOptimizeResult {
+  optimizerId: string
+  model: string
+  prompt: string
+}
+
+export interface PromptOptimizeRequest {
+  optimizerId: string
+  prompt: string
+}
 // ==================== Chat types ====================
 
 // Generation provider (provider id from AppConfig.providers)
@@ -156,6 +184,10 @@ export interface Conversation {
   title: string
   createdAt: number
   updatedAt: number
+  pinned: boolean
+  archived: boolean
+  turnCount: number
+  lastGeneratedAt: number
   messages: ChatMessage[]
   // 会话内收藏（提示词 / 生成结果）。随会话文档一起存储，
   // 因此天然只在当前会话可见，不跨会话共享。
@@ -173,11 +205,21 @@ export interface ConversationFavorite {
   createdAt: number
 }
 
+export interface AllFavoriteEntry extends ConversationFavorite {
+  conversationId: string
+  conversationTitle: string
+  conversationUpdatedAt: number
+}
+
 export interface ConversationSummary {
   id: string
   title: string
   createdAt: number
   updatedAt: number
+  pinned: boolean
+  archived: boolean
+  turnCount: number
+  lastGeneratedAt: number
 }
 
 // Generation queue entry (session-scoped): one entry per image task.

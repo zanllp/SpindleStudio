@@ -53,6 +53,11 @@
             <SettingsPromptForm v-if="editingSnippetId" :key="editingSnippetId" :snippet-id="editingSnippetId" />
             <div v-else class="form-empty">{{ $t('settings.prompts.empty') }}</div>
           </template>
+          <template v-else-if="section === 'optimizers'">
+            <SettingsOptimizerList :selected-id="editingOptimizerId" @select="editingOptimizerId = $event" />
+            <SettingsOptimizerForm v-if="editingOptimizerId" :key="editingOptimizerId" :optimizer-id="editingOptimizerId" />
+            <div v-else class="form-empty">{{ $t('settings.optimizers.empty') }}</div>
+          </template>
           <div v-else class="ai-chat-form">
             <div class="form-title">{{ $t('settings.aiChat.title') }}</div>
             <p class="form-tip">{{ $t('settings.aiChat.tip') }}</p>
@@ -80,7 +85,7 @@
 
 <script setup lang="ts">
 import { ref, watch, markRaw } from 'vue'
-import { CloseOutlined, CloudOutlined, GlobalOutlined, RobotOutlined, SnippetsOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, CloudOutlined, GlobalOutlined, RobotOutlined, SnippetsOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useSettingsStore } from '@/stores/settings'
 import { localePreference, setLocale } from '@/i18n'
@@ -91,12 +96,15 @@ import SettingsProviderList from './SettingsProviderList.vue'
 import SettingsProviderForm from './SettingsProviderForm.vue'
 import SettingsPromptList from './SettingsPromptList.vue'
 import SettingsPromptForm from './SettingsPromptForm.vue'
+import SettingsOptimizerList from './SettingsOptimizerList.vue'
+import SettingsOptimizerForm from './SettingsOptimizerForm.vue'
 import mascotUrl from '@/assets/mascot-welcome.png'
 
 const NAV_ITEMS = [
   { key: 'general', icon: markRaw(GlobalOutlined) },
   { key: 'providers', icon: markRaw(CloudOutlined) },
   { key: 'prompts', icon: markRaw(SnippetsOutlined) },
+  { key: 'optimizers', icon: markRaw(ThunderboltOutlined) },
   { key: 'aiChat', icon: markRaw(RobotOutlined) },
 ] as const
 
@@ -107,6 +115,7 @@ const { t } = useI18n()
 const section = ref<SectionKey>('providers')
 const editingProviderId = ref('')
 const editingSnippetId = ref('')
+const editingOptimizerId = ref('')
 const aiChatDraft = ref({ apiKey: '', baseUrl: '', model: 'gpt-4o-mini' })
 const copied = ref(false)
 
@@ -150,6 +159,7 @@ watch(
     }
     editingProviderId.value = settingsStore.providers[0]?.id || ''
     editingSnippetId.value = settingsStore.promptSnippets[0]?.id || ''
+    editingOptimizerId.value = settingsStore.optimizers[0]?.id || ''
     aiChatDraft.value = {
       apiKey: settingsStore.config.aiChat.apiKey,
       baseUrl: settingsStore.config.aiChat.baseUrl,
@@ -165,7 +175,11 @@ function close() {
 
 async function saveAiChat() {
   try {
-    await settingsStore.saveAiChat(aiChatDraft.value.apiKey.trim(), aiChatDraft.value.baseUrl.trim(), aiChatDraft.value.model.trim())
+    await settingsStore.saveAiChat(
+      aiChatDraft.value.apiKey.trim(),
+      aiChatDraft.value.baseUrl.trim(),
+      aiChatDraft.value.model.trim(),
+    )
   } catch (e: any) {
     message.error(e.response?.data?.error || e.message || t('errors.saveFailed'))
   }

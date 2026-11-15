@@ -102,7 +102,7 @@ SpindleStudio 不是 Stable Diffusion WebUI / ComfyUI 的替代品，也不是�
 
 ## 模型供应商
 
-多家生图后端可以在设置页（左下角齿轮）并行配置——每家独立的 Key、地址和模型列表——使用时在输入框旁按消息切换。同步（OpenAI 兼容 images）与异步任务式 API 均可接入，也支持从界面添加自定义供应商。默认模型为 `gpt-image-2`。
+多家生图后端可以在设置页（左下角齿轮）并行配置——每家独立的 Key、地址和模型列表——使用时在输入框旁按消息切换。同步（OpenAI 兼容 images）与异步任务式 API 均可接入，也支持从界面添加自定义供应商。默认模型为 `gpt-image-2`。内置供应商包含 API Mart、OpenRouter、AIHubMix（Qwen image 系，按 `{width}x{height}` 给尺寸而不是 1K/2K/4K）和 OpenAI。声明了单张价格的模型会把成本写进图片元数据（EXIF 里的 `Cost: $0.0141 USD` 行 + JSON 里的 `cost` 字段）。
 
 <img src="docs/screenshots/settings-providers.webp" alt="供应商设置" width="720" />
 
@@ -141,6 +141,7 @@ yarn start           # http://localhost:3210
 | --- | --- |
 | `APIMART_API_KEY` / `APIMART_BASE_URL` | API Mart 初始 Key / 地址（种子值，应用内可改） |
 | `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` | OpenRouter 初始 Key / 地址（种子值，应用内可改） |
+| `AIHUBMIX_API_KEY` / `AIHUBMIX_BASE_URL` | AIHubMix 初始 Key / 地址（种子值，应用内可改） |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` | 可选，仅用于会话「AI 总结」标题 |
 | `PORT` | 后端端口，默认 3210 |
 | `HTTPS_PROXY` | 可选，出站请求代理 |

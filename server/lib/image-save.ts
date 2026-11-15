@@ -39,6 +39,9 @@ export interface SaveImagesMeta {
   resolution: string // '1k' | '2k' | '4k'
   createdAt: number
   referenceImagePaths?: string[]
+  // 单张图的价格（模型配置里的 pricing）；缺省表示未知，元数据里就不写成本
+  costPerImage?: number
+  costCurrency?: string
 }
 
 // Resolve an accessible URL (/images/<category>/<filename>) from an absolute save path
@@ -110,7 +113,7 @@ export async function saveGeneratedImages(
   imageCategory: string,
   taskId: string,
 ): Promise<{ results: SavedImageResult[]; metadata: ImageGenMetadata }> {
-  const { prompt, model, providerId, size, resolution, createdAt, referenceImagePaths } = meta
+  const { prompt, model, providerId, size, resolution, createdAt, referenceImagePaths, costPerImage, costCurrency } = meta
 
   let saveDir = saveDirRoot
   if (imageCategory) {
@@ -158,6 +161,21 @@ export async function saveGeneratedImages(
       reference_images: referenceImagePaths || [],
     }
 
+    // 成本：单价来自模型配置，按上游实际返回的图片数结算
+    if (typeof costPerImage === 'number' && Number.isFinite(costPerImage)) {
+      const currency = costCurrency || 'USD'
+      extraJsonMetaInfo.cost = {
+        currency,
+        per_image: costPerImage,
+        images: sources.length,
+        total: Number((costPerImage * sources.length).toFixed(6)),
+      }
+    }
+    const cost = extraJsonMetaInfo.cost as { currency: string; per_image: number } | undefined
+    const costParam = cost
+      ? 'Cost: ' + (cost.currency === 'USD' ? '$' : '') + cost.per_image + ' ' + cost.currency
+      : ''
+
     // SD WebUI compatible metadata text.
     // Keep the last parameter line with >=3 key:value pairs so IIB parses it correctly.
     const metadataParams = [
@@ -167,6 +185,7 @@ export async function saveGeneratedImages(
       `Size: ${pixelSize}`,
       `Provider: ${providerId}`,
       `Quality: ${resolution}`,
+      ...(costParam ? [costParam] : []),
       ...(isImg2Img ? [`Img2img: true`] : []),
       `Version: v1.0`,
       `Source Identifier: SpindleStudio`,

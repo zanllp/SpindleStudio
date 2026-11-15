@@ -10,6 +10,7 @@
       />
       <a-input v-model:value="row.id" class="model-id" :placeholder="$t('settings.providers.model.idPlaceholder')" @blur="emitUpdate" />
       <a-input v-model:value="row.label" class="model-label" :placeholder="$t('settings.providers.model.labelPlaceholder')" @blur="emitUpdate" />
+      <a-input v-model:value="row.price" class="model-price" :placeholder="$t('settings.providers.model.pricePlaceholder')" @blur="emitUpdate" />
       <DeleteOutlined class="model-delete" :title="$t('common.delete')" @click="remove(i)" />
     </div>
     <button class="add-model-btn" @click="add">
@@ -28,10 +29,13 @@ const props = defineProps<{ models: ProviderModel[] }>()
 const emit = defineEmits<{ 'update:models': [models: ProviderModel[]] }>()
 
 interface Row {
+  // 原始模型对象：capabilities / pricing 等不在表单里编辑的字段靠它原样带回去，
+  // 否则改一次模型列表就会把（比如）像素尺寸档位和单价冲掉
+  model?: ProviderModel
   id: string
   label: string
   enabled: boolean
-  extra?: Record<string, any>
+  price: string // 单价文本，空串 = 不记录成本
 }
 
 const rows = ref<Row[]>([])
@@ -41,10 +45,11 @@ watch(
   () => props.models,
   models => {
     rows.value = models.map(m => ({
+      model: m,
       id: m.id,
       label: m.label === m.id ? '' : m.label,
       enabled: m.enabled !== false,
-      extra: m.extra,
+      price: typeof m.pricing?.perImage === 'number' ? String(m.pricing.perImage) : '',
     }))
   },
   { immediate: true, deep: true },
@@ -53,13 +58,25 @@ watch(
 function emitUpdate() {
   const models: ProviderModel[] = rows.value
     .filter(r => r.id.trim())
-    .map(r => ({
-      id: r.id.trim(),
-      label: r.label.trim() || r.id.trim(),
+    .map(r => {
+      const id = r.id.trim()
+      const next: ProviderModel = { ...r.model, id, label: r.label.trim() || id }
       // 缺省即启用，仅显式停用时落盘
-      ...(r.enabled ? {} : { enabled: false }),
-      ...(r.extra ? { extra: r.extra } : {}),
-    }))
+      if (r.enabled) delete next.enabled
+      else next.enabled = false
+      // 单价：写进 pricing.perImage，供服务端落盘时写入图片元数据
+      const price = Number(r.price)
+      if (r.price.trim() !== '' && Number.isFinite(price) && price >= 0) {
+        next.pricing = {
+          ...(r.model?.pricing || {}),
+          perImage: price,
+          currency: r.model?.pricing?.currency || 'USD',
+        }
+      } else {
+        delete next.pricing
+      }
+      return next
+    })
   emit('update:models', models)
 }
 
@@ -70,7 +87,7 @@ function toggle(i: number, checked: boolean) {
 }
 
 function add() {
-  rows.value.push({ id: '', label: '', enabled: true })
+  rows.value.push({ id: '', label: '', enabled: true, price: '' })
 }
 
 function remove(i: number) {
@@ -107,6 +124,10 @@ function remove(i: number) {
 
 .model-label {
   flex: 2;
+}
+
+.model-price {
+  flex: 1.4;
 }
 
 .model-delete {

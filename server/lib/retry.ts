@@ -14,6 +14,12 @@ function sleep(ms: number): Promise<void> {
 // down) or a gateway-level status the flaky proxy produces (502/503/504).
 // Real API errors (4xx, other 5xx) fail immediately.
 function isRetryable(error: any): boolean {
+  // A timeout means the upstream request is almost certainly still running.
+  // Retrying would queue a duplicate job behind the same GPU, which is how a
+  // single slow batch snowballs into a pile of overlapping submissions.
+  const code = String(error?.code || '')
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') return false
+  if (/timeout/i.test(String(error?.message || ''))) return false
   const status = error?.response?.status
   if (status) return status === 502 || status === 503 || status === 504
   return true

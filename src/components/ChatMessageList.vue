@@ -17,7 +17,7 @@
         :class="{ active: chatStore.favoritesOpen }"
         :data-tip="$t('chat.favorites.toggleTooltip')"
         data-tip-placement="left"
-        @click="chatStore.favoritesOpen = !chatStore.favoritesOpen"
+        @click="chatStore.toggleFavoritesPanel()"
       >
         <StarOutlined />
         <span v-if="favoriteCount > 0" class="queue-badge">{{ favoriteCount }}</span>
@@ -267,6 +267,8 @@
           <div class="params-cell params-value">
             {{ paramsImage.generationTime ? paramsImage.generationTime.toFixed(1) + 's' : '-' }}
           </div>
+          <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.cost') }}</div>
+          <div class="params-cell params-value">{{ costText(paramsImage.metadata) }}</div>
           <div class="params-cell params-label">{{ $t('chat.message.paramsLabels.referenceImages') }}</div>
           <div class="params-cell params-value params-wide">
             <span v-if="!paramsImage.metadata?.custom_metadata?.reference_images?.length">-</span>
@@ -335,7 +337,7 @@ import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import { thumbUrl } from '@/lib/image'
 import AppButton from './AppButton.vue'
-import type { ChatGeneratedImage, ChatMessage, ChatProvider } from '@/types'
+import type { ChatGeneratedImage, ChatMessage, ChatProvider, ImageMetadata } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
@@ -586,6 +588,14 @@ async function copyPrompt(prompt: string) {
 
 function providerLabel(provider: ChatProvider, model?: string): string {
   return settingsStore.providerLabel(provider, model)
+}
+
+// 成本来自元数据的 custom_metadata.cost（模型单价 × 张数，服务端落盘时写入）
+function costText(meta?: ImageMetadata): string {
+  const cost = meta?.custom_metadata?.cost
+  if (!cost || typeof cost.per_image !== 'number') return '-'
+  const currency = cost.currency || 'USD'
+  return (currency === 'USD' ? '$' : '') + cost.per_image + ' ' + currency
 }
 
 // 生成中剩余占位骨架数：已完成的图渐进上屏、已失败的任务也不再占位

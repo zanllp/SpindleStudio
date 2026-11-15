@@ -15,6 +15,18 @@ import { createTask, getTask, initTasks, updateTask } from './lib/tasks'
 import { saveGeneratedImages } from './lib/image-save'
 import { extractErrorMessage } from './lib/error'
 import { t } from './lib/i18n'
+import { optimizePrompt } from './lib/prompt-optimizer'
+import {
+  deleteConversationFavorite,
+  deleteConversation,
+  getConversation,
+  initConversationStore,
+  listConversations,
+  listFavorites,
+  saveConversation,
+  setConversationArchived,
+  setConversationPinned,
+} from './lib/conversation-store'
 import { adapters, uiHintsForType } from './providers/registry'
 import type {
   GenerateSubmitInput,
@@ -114,7 +126,12 @@ app.get('/api/config', async (_req, res) => {
 
 app.put('/api/config', async (req, res) => {
   try {
-    const saved = await saveConfig({ providers: req.body?.providers, aiChat: req.body?.aiChat, promptSnippets: req.body?.promptSnippets })
+    const saved = await saveConfig({
+      providers: req.body?.providers,
+      aiChat: req.body?.aiChat,
+      promptSnippets: req.body?.promptSnippets,
+      optimizers: req.body?.optimizers,
+    })
     io.emit('config-changed')
     res.json(saved)
   } catch (error: any) {
@@ -364,6 +381,8 @@ app.get('/api/generate/task/:taskId', async (req, res) => {
     }
 
     // Completed — download/decode, embed EXIF, persist to disk, cache the payload
+    // 成本元数据：单价写在模型配置里（provider.models[].pricing）
+    const pricing = provider.models.find(m => m.id === task.modelId)?.pricing
     const { results, metadata } = await saveGeneratedImages(
       SAVE_DIR,
       outcome.sources || [],
@@ -375,6 +394,8 @@ app.get('/api/generate/task/:taskId', async (req, res) => {
         providerId: task.providerId,
         createdAt: task.createdAt,
         referenceImagePaths: task.referenceImagePaths,
+        costPerImage: pricing?.perImage,
+        costCurrency: pricing?.currency,
       },
       task.imageCategory || '',
       taskId,
@@ -409,6 +430,39 @@ app.get('/api/generate/task/:taskId', async (req, res) => {
   }
 })
 
+// ==================== Prompt optimizer (pre-generation, no upstream call) ====================
+
+app.post('/api/prompt/optimize', async (req, res) => {
+  const optimizerId = String(req.body?.optimizerId || '').trim()
+  const prompt = String(req.body?.prompt || '').trim()
+  if (!prompt) return res.status(400).json({ error: t(req, 'promptRequired') })
+
+  const cfg = getConfig()
+  const optimizer = cfg.optimizers.find(o => o.id === optimizerId)
+  if (!optimizer) return res.status(400).json({ error: t(req, 'unknownOptimizer') })
+  if (!optimizer.prompt.trim()) return res.status(400).json({ error: t(req, 'optimizerPromptMissing') })
+
+  try {
+    const ai = cfg.aiChat
+    // 连接（baseUrl / apiKey / model）共用设置里的「AI 模型」；
+    // 提示词来自被选中的那一个预设 —— 一次请求只跑一个优化器，不合并、不链式。
+    const baseUrl = ai.baseUrl
+    const matchingProvider = cfg.providers.find(p => p.apiKey && p.baseUrl === baseUrl)
+    const apiKey = ai.apiKey || matchingProvider?.apiKey || ''
+    const model = ai.model
+    if (!apiKey || !model) return res.status(503).json({ error: t(req, 'promptOptimizerNotConfigured') })
+    console.log(`[prompt-optimizer] rewrite: optimizer=${optimizer.name || optimizer.id} model=${model}`)
+    return res.json(await optimizePrompt(optimizer.id, prompt, {
+      baseUrl,
+      apiKey,
+      model,
+      systemPrompt: optimizer.prompt,
+    }))
+  } catch (error: any) {
+    console.error('prompt optimize failed:', error.response?.data || error.message)
+    return res.status(error.response?.status || 502).json({ error: extractErrorMessage(error) })
+  }
+})
 // ==================== AI chat (optional, used for the "AI title" feature) ====================
 
 app.post('/api/ai-chat', async (req, res) => {
@@ -424,7 +478,7 @@ app.post('/api/ai-chat', async (req, res) => {
       {
         headers: {
           'Authorization': `Bearer ${aiChat.apiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         }
       }
     )
@@ -450,28 +504,25 @@ function conversationFilePath(id: string): string | null {
   return safe ? path.join(CONVERSATIONS_DIR, `${safe}.json`) : null
 }
 
+// ==================== Conversations (SQLite is the source of truth) ====================
+// The legacy <data>/conversations/*.json files are only read once, by the
+// one-shot import in conversation-store. Everything below reads and writes
+// app.db — listings no longer parse every document, and a save only touches the
+// messages that changed.
+
 // List conversations (newest first)
-app.get('/api/conversations', async (_req, res) => {
+app.get('/api/conversations', (_req, res) => {
   try {
-    const files = await fs.readdir(CONVERSATIONS_DIR)
-    const conversations: Array<{ id: string; title: string; createdAt: number; updatedAt: number }> = []
-    for (const file of files) {
-      if (!file.endsWith('.json')) continue
-      try {
-        const raw = await fs.readFile(path.join(CONVERSATIONS_DIR, file), 'utf-8')
-        const data = JSON.parse(raw)
-        conversations.push({
-          id: data.id,
-          title: data.title,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-        })
-      } catch {
-        // Skip corrupted conversation files
-      }
-    }
-    conversations.sort((a, b) => b.updatedAt - a.updatedAt)
-    res.json({ conversations })
+    res.json({ conversations: listConversations() })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// All favorites across conversations, flattened for the global favorites panel.
+app.get('/api/favorites', (_req, res) => {
+  try {
+    res.json({ favorites: listFavorites() })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -487,9 +538,13 @@ app.post('/api/conversations', async (req, res) => {
       title: req.body.title || t(req, 'newConversationTitle'),
       createdAt: now,
       updatedAt: now,
+      pinned: false,
+      archived: false,
+      turnCount: 0,
+      lastGeneratedAt: 0,
       messages: [],
     }
-    await fs.writeFile(path.join(CONVERSATIONS_DIR, `${id}.json`), JSON.stringify(conversation, null, 2))
+    saveConversation(conversation)
     io.emit('conversations-changed')
     console.log(`[socket.io] emit conversations-changed (created: ${id})`)
     res.json(conversation)
@@ -498,31 +553,85 @@ app.post('/api/conversations', async (req, res) => {
   }
 })
 
-// Read one conversation
-app.get('/api/conversations/:id', async (req, res) => {
+// Read one conversation (with all of its messages)
+app.get('/api/conversations/:id', (req, res) => {
   try {
-    const filepath = conversationFilePath(req.params.id)
-    if (!filepath) return res.status(400).json({ error: t(req, 'invalidConversationId') })
-    const raw = await fs.readFile(filepath, 'utf-8')
-    res.json(JSON.parse(raw))
+    if (!sanitizeConversationId(req.params.id)) {
+      return res.status(400).json({ error: t(req, 'invalidConversationId') })
+    }
+    const conversation = getConversation(req.params.id)
+    if (!conversation) return res.status(404).json({ error: t(req, 'conversationNotFound') })
+    res.json(conversation)
   } catch (error: any) {
-    if (error.code === 'ENOENT') return res.status(404).json({ error: t(req, 'conversationNotFound') })
     res.status(500).json({ error: error.message })
   }
 })
 
-// Save a conversation (whole-document write)
+// Save a conversation (whole-document update; messages are diffed row by row)
 app.put('/api/conversations/:id', async (req, res) => {
   try {
-    const filepath = conversationFilePath(req.params.id)
-    if (!filepath) return res.status(400).json({ error: t(req, 'invalidConversationId') })
+    if (!sanitizeConversationId(req.params.id)) {
+      return res.status(400).json({ error: t(req, 'invalidConversationId') })
+    }
     const data = req.body
     if (!data || data.id !== req.params.id) {
       return res.status(400).json({ error: t(req, 'conversationMismatch') })
     }
-    await fs.writeFile(filepath, JSON.stringify(data, null, 2))
+    const stats = saveConversation(data)
     io.emit('conversation-updated', { convId: req.params.id })
-    console.log(`[socket.io] emit conversation-updated: ${req.params.id}`)
+    console.log(
+      `[socket.io] emit conversation-updated: ${req.params.id} ` +
+      `(messages +${stats.messagesWritten}/~${stats.messagesReordered}/-${stats.messagesDeleted})`,
+    )
+    res.json({ success: true, ...stats })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Pin/unpin a conversation without rewriting its messages.
+app.put('/api/conversations/:id/pin', (req, res) => {
+  try {
+    if (!sanitizeConversationId(req.params.id)) {
+      return res.status(400).json({ error: t(req, 'invalidConversationId') })
+    }
+    const pinned = Boolean(req.body?.pinned)
+    if (!setConversationPinned(req.params.id, pinned)) {
+      return res.status(404).json({ error: t(req, 'conversationNotFound') })
+    }
+    io.emit('conversations-changed')
+    res.json({ success: true, pinned })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Archive/unarchive a conversation. Archived conversations stay in the sidebar's collapsed section.
+app.put('/api/conversations/:id/archive', (req, res) => {
+  try {
+    if (!sanitizeConversationId(req.params.id)) {
+      return res.status(400).json({ error: t(req, 'invalidConversationId') })
+    }
+    const archived = Boolean(req.body?.archived)
+    if (!setConversationArchived(req.params.id, archived)) {
+      return res.status(404).json({ error: t(req, 'conversationNotFound') })
+    }
+    io.emit('conversations-changed')
+    res.json({ success: true, archived })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Remove one favorite without loading or rewriting the whole conversation.
+app.delete('/api/conversations/:id/favorites/:favoriteId', (req, res) => {
+  try {
+    if (!sanitizeConversationId(req.params.id)) {
+      return res.status(400).json({ error: t(req, 'invalidConversationId') })
+    }
+    const removed = deleteConversationFavorite(req.params.id, req.params.favoriteId)
+    if (!removed) return res.status(404).json({ error: t(req, 'favoriteNotFound') })
+    io.emit('conversation-updated', { convId: req.params.id })
     res.json({ success: true })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -545,11 +654,13 @@ async function writeUploadStats(stats: Record<string, number>): Promise<void> {
   await fs.writeFile(UPLOAD_STATS_FILE, JSON.stringify(stats))
 }
 
-// Delete a conversation (and its upload directory)
+// Delete a conversation (its rows, its upload directory and any legacy JSON)
 app.delete('/api/conversations/:id', async (req, res) => {
   try {
     const filepath = conversationFilePath(req.params.id)
     if (!filepath) return res.status(400).json({ error: t(req, 'invalidConversationId') })
+    deleteConversation(req.params.id)
+    // Legacy JSON archive (written by older versions) — remove if it still exists
     await fs.rm(filepath, { force: true })
     await fs.rm(path.join(UPLOADS_DIR, req.params.id), { recursive: true, force: true })
     const stats = await readUploadStats()
@@ -715,12 +826,36 @@ app.get('*', (req, res, next) => {
   })
 })
 
+async function resetRemoteQueuesOnStartup(): Promise<void> {
+  const targets = getConfig().providers.filter(p => p.enabled && p.apiKey && p.resetQueueOnStart)
+  for (const provider of targets) {
+    const adapter = adapters[provider.type]
+    if (!adapter?.resetRemoteQueue) {
+      console.warn(`[queue-reset] ${provider.id}: adapter has no remote queue reset hook`)
+      continue
+    }
+    try {
+      const result = await adapter.resetRemoteQueue(provider)
+      console.log(`[queue-reset] ${provider.id}: ${JSON.stringify(result)}`)
+    } catch (error: any) {
+      // Local/remote outage should not prevent the UI from starting. The next
+      // explicit app restart will retry the reset.
+      console.warn(`[queue-reset] ${provider.id} failed: ${extractErrorMessage(error)}`)
+    }
+  }
+}
+
 ;(async () => {
   await migrateDataDir()
   await fs.mkdir(SAVE_DIR, { recursive: true })
   await fs.mkdir(CONVERSATIONS_DIR, { recursive: true })
   await fs.mkdir(UPLOADS_DIR, { recursive: true })
   await Promise.all([initConfig(DATA_DIR), initTasks(DATA_DIR)])
+  await resetRemoteQueuesOnStartup()
+  // Conversations live in <data>/app.db. On a fresh install this also imports
+  // the legacy conversations/*.json files (once — never again once the table
+  // has rows, so a deleted conversation can't be resurrected by a stale file).
+  await initConversationStore(DATA_DIR)
 
   // Port auto-retry: if the default port is occupied, try the next N ports.
   // The chosen port is written to .server-port so the Vite dev server and Electron
